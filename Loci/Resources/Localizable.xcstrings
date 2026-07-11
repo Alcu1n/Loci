@@ -1,0 +1,114 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@, map poster" : {
+
+    },
+    "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Apple MapKit." : {
+
+    },
+    "Attribution" : {
+
+    },
+    "City" : {
+
+    },
+    "Coordinates" : {
+
+    },
+    "Country" : {
+
+    },
+    "Done" : {
+
+    },
+    "Export PNG" : {
+
+    },
+    "Format" : {
+
+    },
+    "Latitude" : {
+
+    },
+    "LAYERS" : {
+
+    },
+    "Location" : {
+
+    },
+    "Loci" : {
+
+    },
+    "Loci stores the latest poster on this device. It does not use accounts, analytics, advertising, or background location." : {
+
+    },
+    "Longitude" : {
+
+    },
+    "New" : {
+
+    },
+    "New poster" : {
+
+    },
+    "Off" : {
+
+    },
+    "OFF" : {
+
+    },
+    "OK" : {
+
+    },
+    "On" : {
+
+    },
+    "ON" : {
+
+    },
+    "Poster preview for %@" : {
+
+    },
+    "POSTER THEMES" : {
+
+    },
+    "Privacy" : {
+
+    },
+    "Search" : {
+
+    },
+    "Search cities, landmarks, or addresses" : {
+
+    },
+    "Show city" : {
+
+    },
+    "Show country" : {
+
+    },
+    "Show subtitle" : {
+
+    },
+    "Style" : {
+
+    },
+    "Subtitle" : {
+
+    },
+    "Text & Size" : {
+
+    },
+    "Typography" : {
+
+    },
+    "Use coordinates" : {
+
+    },
+    "Use current location" : {
+
+    }
+  },
+  "version" : "1.0"
+}

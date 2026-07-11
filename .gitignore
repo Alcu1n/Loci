@@ -1,0 +1,18 @@
+# Xcode build products and local derived data
+build/
+build-new/
+DerivedData/
+
+# Xcode per-user state
+*.xcuserstate
+xcuserdata/
+
+# Swift Package Manager checkouts and generated metadata
+.build/
+
+# Test/build reports and local OS files
+*.xcresult
+.DS_Store
+
+# Generated simulator captures
+*.png

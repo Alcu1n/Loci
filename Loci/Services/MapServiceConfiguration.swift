@@ -7,5 +7,7 @@ enum MapServiceConfiguration {
         }
         return url
     }
-    static let exportAttribution = "© OPENSTREETMAP CONTRIBUTORS · © OPENMAPTILES · OPENFREEMAP"
+    static let posterSignature = "©Loci"
+    static let compactMapAttribution = "© OpenStreetMap contributors · ODbL"
+    static let exportAttribution = "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap"
 }

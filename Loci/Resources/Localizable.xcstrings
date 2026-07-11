@@ -10,25 +10,10 @@
     "Attribution" : {
 
     },
-    "City" : {
-
-    },
-    "Coordinates" : {
-
-    },
-    "Country" : {
-
-    },
     "Done" : {
 
     },
-    "Export PNG" : {
-
-    },
-    "Format" : {
-
-    },
-    "Latitude" : {
+    "FORMAT" : {
 
     },
     "LAYERS" : {
@@ -41,9 +26,6 @@
 
     },
     "Loci stores the latest poster on this device. It does not use accounts, analytics, advertising, or background location." : {
-
-    },
-    "Longitude" : {
 
     },
     "New" : {
@@ -76,37 +58,22 @@
     "Privacy" : {
 
     },
-    "Search" : {
+    "Save poster to Photos" : {
 
     },
-    "Search cities, landmarks, or addresses" : {
-
-    },
-    "Show city" : {
-
-    },
-    "Show country" : {
-
-    },
-    "Show subtitle" : {
+    "Saved" : {
 
     },
     "Style" : {
 
     },
-    "Subtitle" : {
-
-    },
     "Text & Size" : {
 
     },
-    "Typography" : {
+    "TYPOGRAPHY" : {
 
     },
-    "Use coordinates" : {
-
-    },
-    "Use current location" : {
+    "USE CURRENT LOCATION" : {
 
     }
   },

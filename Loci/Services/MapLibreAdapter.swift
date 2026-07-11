@@ -14,20 +14,21 @@ struct MapLibreMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MLNMapView {
         let mapView = MLNMapView(frame: .zero, styleURL: MapServiceConfiguration.styleURL)
         mapView.delegate = context.coordinator
-        mapView.isRotateEnabled = false
+        mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.logoView.isHidden = true
         mapView.attributionButton.isHidden = true
-        mapView.setCenter(document.coordinate, zoomLevel: document.camera.zoom, animated: false)
+        mapView.setCenter(document.coordinate, zoomLevel: document.camera.zoom, direction: document.camera.bearing, animated: false)
         return mapView
     }
 
     func updateUIView(_ mapView: MLNMapView, context: Context) {
         context.coordinator.parent = self
         let target = document.coordinate
-        if mapView.centerCoordinate.distance(to: target) > 0.00001 || abs(mapView.zoomLevel - document.camera.zoom) > 0.01 {
+        let directionDelta = abs(mapView.direction.shortestDelta(to: document.camera.bearing))
+        if mapView.centerCoordinate.distance(to: target) > 0.00001 || abs(mapView.zoomLevel - document.camera.zoom) > 0.01 || directionDelta > 0.1 {
             context.coordinator.isApplyingDocument = true
-            mapView.setCenter(target, zoomLevel: document.camera.zoom, animated: false)
+            mapView.setCenter(target, zoomLevel: document.camera.zoom, direction: document.camera.bearing, animated: false)
             context.coordinator.isApplyingDocument = false
         }
         if let style = mapView.style { MapStyleApplicator.apply(document: document, to: style) }
@@ -58,7 +59,7 @@ struct MapLibreMapView: UIViewRepresentable {
                 }
                 return
             }
-            parent.onViewportChange(.init(camera: .init(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude, zoom: mapView.zoomLevel), size: size))
+            parent.onViewportChange(.init(camera: .init(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude, zoom: mapView.zoomLevel, bearing: mapView.direction.normalizedBearing), size: size))
         }
 
         func mapViewDidFailLoadingMap(_ mapView: MLNMapView, withError error: Error) {
@@ -73,7 +74,7 @@ struct MapLibreRenderer: MapRenderer {
         return try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 let coordinate = CLLocationCoordinate2D(latitude: viewport.camera.latitude, longitude: viewport.camera.longitude)
-                let camera = MLNMapCamera(lookingAtCenter: coordinate, altitude: 0, pitch: 0, heading: 0)
+                let camera = MLNMapCamera(lookingAtCenter: coordinate, altitude: 0, pitch: 0, heading: viewport.camera.bearing)
                 let options = MLNMapSnapshotOptions(styleURL: MapServiceConfiguration.styleURL, camera: camera, size: viewport.size)
                 options.zoomLevel = viewport.camera.zoom
                 options.scale = viewport.outputScale(for: size)
@@ -155,6 +156,17 @@ enum MapStyleApplicator {
 private extension CLLocationCoordinate2D {
     func distance(to other: CLLocationCoordinate2D) -> CLLocationDegrees {
         max(abs(latitude - other.latitude), abs(longitude - other.longitude))
+    }
+}
+
+private extension CLLocationDirection {
+    var normalizedBearing: CLLocationDirection {
+        let value = truncatingRemainder(dividingBy: 360)
+        return value < 0 ? value + 360 : value
+    }
+
+    func shortestDelta(to other: CLLocationDirection) -> CLLocationDirection {
+        ((normalizedBearing - other.normalizedBearing + 540).truncatingRemainder(dividingBy: 360)) - 180
     }
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import MapKit
+import Photos
 import UIKit
 
 struct UserDefaultsDraftRepository: DraftRepository {
@@ -61,18 +62,45 @@ struct CoreGraphicsCompositor: PosterCompositor {
             context.cgContext.drawLinearGradient(bottomGradient, start: .init(x: 0, y: output.height * (1 - PosterFade.bottomFraction)), end: .init(x: 0, y: output.height), options: [])
             let margin = output.width * 0.08
             let color = UIColor(hex: theme.ink)
-            if document.typography.cityVisible { draw(document.location.city ?? document.title, font: .monospacedSystemFont(ofSize: output.width * 0.105, weight: .bold), color: color, rect: .init(x: margin, y: output.height * 0.65, width: output.width - margin * 2, height: output.height * 0.10), alignment: .center, kern: output.width * 0.006) }
-            if document.typography.countryVisible { draw(document.location.country ?? "", font: .monospacedSystemFont(ofSize: output.width * 0.030, weight: .medium), color: color.withAlphaComponent(0.74), rect: .init(x: margin, y: output.height * 0.75, width: output.width - margin * 2, height: output.height * 0.04), alignment: .center, kern: output.width * 0.004) }
-            context.cgContext.setFillColor(color.withAlphaComponent(0.55).cgColor); context.cgContext.fill(.init(x: output.width * 0.44, y: output.height * 0.80, width: output.width * 0.12, height: max(1, output.width * 0.001)))
-            if document.typography.subtitleVisible { draw(document.typography.subtitle.uppercased(), font: .monospacedSystemFont(ofSize: output.width * 0.020, weight: .regular), color: color.withAlphaComponent(0.64), rect: .init(x: margin, y: output.height * 0.83, width: output.width - margin * 2, height: output.height * 0.03), alignment: .center, kern: output.width * 0.002) }
-            draw(String(format: "%.4f°  %.4f°", document.camera.latitude, document.camera.longitude), font: .monospacedSystemFont(ofSize: output.width * 0.013, weight: .regular), color: color.withAlphaComponent(0.48), rect: .init(x: margin, y: output.height * 0.87, width: output.width - margin * 2, height: output.height * 0.025), alignment: .center)
-            draw(MapServiceConfiguration.exportAttribution, font: .monospacedSystemFont(ofSize: output.width * 0.009, weight: .regular), color: color.withAlphaComponent(0.42), rect: .init(x: margin, y: output.height * 0.93, width: output.width - margin * 2, height: output.height * 0.02), alignment: .center)
+            if document.typography.cityVisible { draw(document.location.city ?? document.title, font: .monospacedSystemFont(ofSize: output.width * 0.105, weight: .bold), color: color, rect: .init(x: margin, y: output.height * PosterTypographyLayout.cityYFraction, width: output.width - margin * 2, height: output.height * 0.10), alignment: .center, kern: output.width * 0.006) }
+            if document.typography.countryVisible { draw(document.location.country ?? "", font: .monospacedSystemFont(ofSize: output.width * 0.030, weight: .medium), color: color.withAlphaComponent(0.74), rect: .init(x: margin, y: output.height * PosterTypographyLayout.countryYFraction, width: output.width - margin * 2, height: output.height * 0.04), alignment: .center, kern: output.width * 0.004) }
+            drawSeparator(in: context.cgContext, output: output, color: color)
+            if document.typography.subtitleVisible { draw(document.typography.subtitle.uppercased(), font: .monospacedSystemFont(ofSize: output.width * 0.020, weight: .regular), color: color.withAlphaComponent(0.64), rect: .init(x: margin, y: output.height * PosterTypographyLayout.subtitleYFraction, width: output.width - margin * 2, height: output.height * 0.03), alignment: .center, kern: output.width * 0.002) }
+            draw(String(format: "%.4f°  %.4f°", document.camera.latitude, document.camera.longitude), font: .monospacedSystemFont(ofSize: output.width * 0.013, weight: .regular), color: color.withAlphaComponent(0.48), rect: .init(x: margin, y: output.height * PosterTypographyLayout.coordinatesYFraction, width: output.width - margin * 2, height: output.height * 0.025), alignment: .center)
+            let footerY = output.height * PosterTypographyLayout.footerYFraction
+            draw(MapServiceConfiguration.compactMapAttribution, font: .monospacedSystemFont(ofSize: output.width * 0.007, weight: .regular), color: color.withAlphaComponent(0.28), rect: .init(x: output.width * 0.025, y: footerY, width: output.width * 0.62, height: output.height * 0.02))
+            draw(MapServiceConfiguration.posterSignature, font: .systemFont(ofSize: output.width * 0.009, weight: .medium), color: color.withAlphaComponent(0.52), rect: .init(x: output.width * 0.68, y: footerY, width: output.width * 0.295, height: output.height * 0.02), alignment: .right)
         }
+    }
+
+    private func drawSeparator(in context: CGContext, output: CGSize, color: UIColor) {
+        let width = output.width * PosterTypographyLayout.separatorWidthFraction
+        let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [color.withAlphaComponent(0).cgColor, color.withAlphaComponent(0.55).cgColor, color.withAlphaComponent(0.55).cgColor, color.withAlphaComponent(0).cgColor] as CFArray, locations: [0, 0.28, 0.72, 1])!
+        let y = output.height * PosterTypographyLayout.separatorYFraction
+        let startX = (output.width - width) / 2
+        context.saveGState()
+        context.clip(to: .init(x: startX, y: y, width: width, height: max(1, output.width * 0.001)))
+        context.drawLinearGradient(gradient, start: .init(x: startX, y: y), end: .init(x: startX + width, y: y), options: [])
+        context.restoreGState()
     }
 
     private func draw(_ text: String, font: UIFont, color: UIColor, rect: CGRect, alignment: NSTextAlignment = .left, kern: CGFloat = 0) {
         let style = NSMutableParagraphStyle(); style.alignment = alignment
         (text as NSString).draw(in: rect, withAttributes: [.font: font, .foregroundColor: color, .paragraphStyle: style, .kern: kern])
+    }
+}
+
+struct SystemPhotoLibrarySaver: PhotoLibrarySaver {
+    func saveImage(at url: URL) async throws {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else { throw LociError.photoAccessDenied }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: url)
+            }
+        } catch {
+            throw LociError.photoSaveFailed
+        }
     }
 }
 

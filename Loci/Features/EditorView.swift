@@ -2,35 +2,81 @@ import SwiftUI
 
 struct EditorView: View {
     @Bindable var store: PosterEditorStore
-    @State private var sharePresented = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                toolbar
-                PosterPreview(document: store.document, onViewportChange: store.updateViewport, onFailure: { store.errorMessage = $0 })
-                    .padding(.horizontal, 18).padding(.vertical, 12)
-                    .frame(maxHeight: .infinity)
-                editorBar
-                    .safeAreaPadding(.bottom)
-                    .background(Color.black)
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    toolbar(topInset: proxy.safeAreaInsets.top)
+                    PosterPreview(document: store.document, onViewportChange: store.updateViewport, onFailure: { store.errorMessage = $0 })
+                        .padding(.horizontal, 18).padding(.vertical, 12)
+                        .frame(maxHeight: .infinity)
+                    editorBar(bottomInset: proxy.safeAreaInsets.bottom)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black.ignoresSafeArea())
-            .ignoresSafeArea(.container, edges: [.top, .bottom])
             .sheet(item: $store.activeSheet) { sheet in sheetView(sheet) }
-            .sheet(isPresented: $sharePresented) { if let url = store.exportedURL { ShareSheet(items: [url]) } }
             .alert("Loci", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
-            .onChange(of: store.exportedURL) { _, url in sharePresented = url != nil }
+            .alert("Saved", isPresented: Binding(get: { store.confirmationMessage != nil }, set: { if !$0 { store.confirmationMessage = nil } })) { Button("OK", role: .cancel) { store.confirmationMessage = nil } } message: { Text(store.confirmationMessage ?? "") }
         }
         .tint(.white)
         .toolbar(.hidden, for: .navigationBar)
         .statusBarHidden(true)
     }
 
-    private var toolbar: some View { ZStack { HStack { Button("New", systemImage: "plus") { store.newPoster() }.labelStyle(.iconOnly).accessibilityLabel("New poster"); Spacer(); Button { Task { await store.export() } } label: { if store.isExporting { ProgressView().tint(.white) } else { Image(systemName: "square.and.arrow.up") } }.disabled(store.isExporting || store.previewViewport == nil).accessibilityLabel("Export PNG") }.padding(.horizontal, 20).frame(height: 56).frame(maxHeight: .infinity, alignment: .top); Text(store.document.title).font(.system(size: 10, design: .monospaced).weight(.bold)).lineLimit(1).minimumScaleFactor(0.7).accessibilityLabel("\(store.document.title), map poster").frame(maxHeight: .infinity, alignment: .bottom).padding(.horizontal, 80).padding(.bottom, 7) }.frame(height: 64).background(Color.black).overlay(alignment: .bottom) { Divider().overlay(Color.white.opacity(0.18)) } }
-    private var editorBar: some View { HStack(spacing: 0) { editorButton("Location", icon: "location") { store.activeSheet = .location }; editorButton("Style", icon: "circle.lefthalf.filled") { store.activeSheet = .style }; editorButton("Text & Size", icon: "textformat.size") { store.activeSheet = .text } }.frame(height: 76).overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.18)) } }
-    private func editorButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View { Button(action: action) { VStack(spacing: 7) { Image(systemName: icon); Text(title).font(.system(size: 11, design: .monospaced)) }.frame(maxWidth: .infinity, maxHeight: .infinity) }.buttonStyle(.plain).overlay(alignment: .trailing) { Divider().overlay(Color.white.opacity(0.12)) } .accessibilityLabel(title) }
+    private func toolbar(topInset: CGFloat) -> some View {
+        HStack(spacing: 16) {
+            Button("New", systemImage: "plus") { store.newPoster() }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("New poster")
+            Spacer()
+            Text(store.document.title)
+                .font(.system(size: 12, design: .monospaced).weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityLabel("\(store.document.title), map poster")
+            Spacer()
+            Button { Task { await store.exportToPhotos() } } label: {
+                if store.isExporting { ProgressView().tint(.white) } else { Image(systemName: "arrow.down.to.line") }
+            }
+            .disabled(store.isExporting || store.previewViewport == nil)
+            .accessibilityLabel("Save poster to Photos")
+        }
+        .padding(.top, topInset)
+        .padding(.horizontal, 20)
+        .frame(height: topInset + 56)
+        .background(Color.black)
+        .overlay(alignment: .bottom) { Divider().overlay(Color.white.opacity(0.18)) }
+    }
+
+    private func editorBar(bottomInset: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            editorButton("Location", icon: "location") { store.activeSheet = .location }
+                .padding(.bottom, bottomInset)
+            Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1)
+            editorButton("Style", icon: "circle.lefthalf.filled") { store.activeSheet = .style }
+                .padding(.bottom, bottomInset)
+            Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1)
+            editorButton("Text & Size", icon: "textformat.size") { store.activeSheet = .text }
+                .padding(.bottom, bottomInset)
+        }
+        .frame(height: 52 + bottomInset)
+        .background(Color.black)
+        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.18)) }
+    }
+
+    private func editorButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 21, weight: .regular))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
     @ViewBuilder private func sheetView(_ sheet: PosterEditorStore.Sheet) -> some View { switch sheet { case .location: LocationSheet(store: store); case .style: StyleSheet(store: store); case .text: TextSizeSheet(store: store); case .settings: SettingsView() } }
 }
 
@@ -46,7 +92,53 @@ struct PosterArtwork: View {
     let onViewportChange: (MapViewport) -> Void
     let onFailure: (String) -> Void
     private var theme: PosterTheme { PosterTheme.all.first(where: { $0.id == document.themeID }) ?? PosterTheme.all[0] }
-    var body: some View { GeometryReader { proxy in ZStack(alignment: .bottom) { MapLibreMapView(document: document, onViewportChange: onViewportChange, onFailure: onFailure).overlay(alignment: .top) { LinearGradient(colors: [Color(hex: theme.background).opacity(Double(PosterFade.opacity)), .clear], startPoint: .top, endPoint: .bottom).frame(height: proxy.size.height * PosterFade.topFraction).allowsHitTesting(false) }.overlay(alignment: .bottom) { LinearGradient(colors: [.clear, Color(hex: theme.background).opacity(Double(PosterFade.opacity))], startPoint: .top, endPoint: .bottom).frame(height: proxy.size.height * PosterFade.bottomFraction).allowsHitTesting(false) }; VStack(spacing: 6) { if document.typography.cityVisible { Text(document.location.city ?? document.title).font(.system(size: max(28, proxy.size.width * 0.105), weight: .bold, design: .monospaced)).tracking(proxy.size.width * 0.006).lineLimit(1).minimumScaleFactor(0.45) }; if document.typography.countryVisible { Text(document.location.country ?? "").font(.system(size: max(10, proxy.size.width * 0.030), weight: .medium, design: .monospaced)).tracking(proxy.size.width * 0.004).foregroundStyle(Color(hex: theme.ink).opacity(0.72)) }; Rectangle().fill(Color(hex: theme.ink).opacity(0.55)).frame(width: proxy.size.width * 0.12, height: 1).padding(.vertical, 4); if document.typography.subtitleVisible { Text(document.typography.subtitle.uppercased()).font(.system(size: max(8, proxy.size.width * 0.020), design: .monospaced)).tracking(proxy.size.width * 0.002).foregroundStyle(Color(hex: theme.ink).opacity(0.64)) }; Text(String(format: "%.4f°  %.4f°", document.camera.latitude, document.camera.longitude)).font(.system(size: max(7, proxy.size.width * 0.013), design: .monospaced)).foregroundStyle(Color(hex: theme.ink).opacity(0.48)); Text(MapServiceConfiguration.exportAttribution).font(.system(size: max(6, proxy.size.width * 0.009), design: .monospaced)).foregroundStyle(Color(hex: theme.ink).opacity(0.42)).padding(.top, 3) }.multilineTextAlignment(.center).foregroundStyle(Color(hex: theme.ink)).frame(maxWidth: .infinity).padding(.horizontal, proxy.size.width * 0.08).padding(.bottom, proxy.size.height * 0.07).allowsHitTesting(false) } }.background(Color(hex: theme.background)).clipShape(.rect) }
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                MapLibreMapView(document: document, onViewportChange: onViewportChange, onFailure: onFailure)
+                    .overlay(alignment: .top) {
+                        LinearGradient(colors: [Color(hex: theme.background).opacity(Double(PosterFade.opacity)), .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: proxy.size.height * PosterFade.topFraction).allowsHitTesting(false)
+                    }
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(colors: [.clear, Color(hex: theme.background).opacity(Double(PosterFade.opacity))], startPoint: .top, endPoint: .bottom)
+                            .frame(height: proxy.size.height * PosterFade.bottomFraction).allowsHitTesting(false)
+                    }
+                posterText(width: proxy.size.width)
+                    .padding(.bottom, proxy.size.height * PosterTypographyLayout.contentBottomFraction)
+                posterFooter(width: proxy.size.width)
+            }
+        }
+        .background(Color(hex: theme.background))
+        .clipShape(.rect)
+    }
+
+    private func posterText(width: CGFloat) -> some View {
+        VStack(spacing: 6) {
+            if document.typography.cityVisible {
+                Text(document.location.city ?? document.title).font(.system(size: max(28, width * 0.105), weight: .bold, design: .monospaced)).tracking(width * 0.006).lineLimit(1).minimumScaleFactor(0.45)
+            }
+            if document.typography.countryVisible {
+                Text(document.location.country ?? "").font(.system(size: max(10, width * 0.030), weight: .medium, design: .monospaced)).tracking(width * 0.004).foregroundStyle(Color(hex: theme.ink).opacity(0.72))
+            }
+            LinearGradient(colors: [.clear, Color(hex: theme.ink).opacity(0.55), Color(hex: theme.ink).opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: width * PosterTypographyLayout.separatorWidthFraction, height: 1).padding(.vertical, 4)
+            if document.typography.subtitleVisible {
+                Text(document.typography.subtitle.uppercased()).font(.system(size: max(8, width * 0.020), design: .monospaced)).tracking(width * 0.002).foregroundStyle(Color(hex: theme.ink).opacity(0.64))
+            }
+            Text(String(format: "%.4f°  %.4f°", document.camera.latitude, document.camera.longitude)).font(.system(size: max(7, width * 0.013), design: .monospaced)).foregroundStyle(Color(hex: theme.ink).opacity(0.48))
+        }
+        .multilineTextAlignment(.center).foregroundStyle(Color(hex: theme.ink)).frame(maxWidth: .infinity).padding(.horizontal, width * 0.08).allowsHitTesting(false)
+    }
+
+    private func posterFooter(width: CGFloat) -> some View {
+        HStack(alignment: .bottom) {
+            Text(MapServiceConfiguration.compactMapAttribution).font(.system(size: max(4, width * 0.007), design: .monospaced)).foregroundStyle(Color(hex: theme.ink).opacity(0.28))
+            Spacer(minLength: 8)
+            Text(MapServiceConfiguration.posterSignature).font(.system(size: max(6, width * 0.009), weight: .medium)).foregroundStyle(Color(hex: theme.ink).opacity(0.52))
+        }
+        .padding(.horizontal, width * 0.025).padding(.bottom, width * 0.025).allowsHitTesting(false)
+    }
 }
 
 extension Color { init(hex: String) { self.init(uiColor: UIColor(hex: hex)) } }

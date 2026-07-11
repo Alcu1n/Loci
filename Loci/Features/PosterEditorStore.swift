@@ -11,18 +11,20 @@ import Observation
     var isExporting = false
     var isLocating = false
     var exportedURL: URL?
+    var confirmationMessage: String?
     var previewViewport: MapViewport?
     private let drafts: any DraftRepository
     private let geocoder: any GeocodingClient
     private let exporter: any ExportService
     private let currentLocation: any CurrentLocationClient
+    private let photoLibrary: any PhotoLibrarySaver
 
-    init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, exporter: any ExportService, currentLocation: any CurrentLocationClient) { self.document = document; self.drafts = drafts; self.geocoder = geocoder; self.exporter = exporter; self.currentLocation = currentLocation }
+    init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, exporter: any ExportService, currentLocation: any CurrentLocationClient, photoLibrary: any PhotoLibrarySaver) { self.document = document; self.drafts = drafts; self.geocoder = geocoder; self.exporter = exporter; self.currentLocation = currentLocation; self.photoLibrary = photoLibrary }
 
     static func live() -> PosterEditorStore {
         let drafts = UserDefaultsDraftRepository(); let renderer = MapLibreRenderer(); let compositor = CoreGraphicsCompositor()
         let document = (try? drafts.load()) ?? .tokyo
-        return PosterEditorStore(document: document, drafts: drafts, geocoder: ApplePlaceSearchClient(), exporter: LocalExportService(renderer: renderer, compositor: compositor), currentLocation: CoreLocationClient())
+        return PosterEditorStore(document: document, drafts: drafts, geocoder: ApplePlaceSearchClient(), exporter: LocalExportService(renderer: renderer, compositor: compositor), currentLocation: CoreLocationClient(), photoLibrary: SystemPhotoLibrarySaver())
     }
 
     func save() { document.updatedAt = .now; do { try drafts.save(document) } catch { errorMessage = error.localizedDescription } }
@@ -38,4 +40,5 @@ import Observation
     func search() async { guard searchQuery.count >= 2 else { suggestions = []; return }; do { suggestions = try await geocoder.search(query: searchQuery); if suggestions.isEmpty { errorMessage = LociError.noResults.localizedDescription } } catch { errorMessage = error.localizedDescription } }
     func useCurrentLocation() async { guard !isLocating else { return }; isLocating = true; defer { isLocating = false }; do { select(try await currentLocation.locate()) } catch { errorMessage = error.localizedDescription } }
     func export() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { exportedURL = try await exporter.export(document: document, viewport: previewViewport) } catch { errorMessage = error.localizedDescription } }
+    func exportToPhotos() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { let url = try await exporter.export(document: document, viewport: previewViewport); exportedURL = url; try await photoLibrary.saveImage(at: url); confirmationMessage = "Poster saved to Photos." } catch { errorMessage = error.localizedDescription } }
 }

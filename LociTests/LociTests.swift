@@ -9,20 +9,30 @@ final class LociTests: XCTestCase {
         XCTAssertEqual(document.themeID, PosterTheme.defaultID)
     }
 
-    func testCameraIsClampedAndNorthUp() {
+    func testCameraIsClampedAndBearingIsPreserved() {
         var document = PosterDocument.tokyo
         document.camera = .init(latitude: 100, longitude: -200, zoom: 50, bearing: 32)
         document.normalize()
         XCTAssertEqual(document.camera.latitude, 90)
         XCTAssertEqual(document.camera.longitude, -180)
         XCTAssertEqual(document.camera.zoom, 22)
-        XCTAssertEqual(document.camera.bearing, 0)
+        XCTAssertEqual(document.camera.bearing, 32)
+    }
+
+    func testNegativeBearingIsNormalized() {
+        var document = PosterDocument.tokyo
+        document.camera.bearing = -45
+        document.normalize()
+        XCTAssertEqual(document.camera.bearing, 315)
     }
 
     func testAllPresetSizesStayInsideBudget() {
+        XCTAssertEqual(PosterLayout.allCases.count, 6)
         for layout in PosterLayout.allCases {
             XCTAssertLessThanOrEqual(layout.pixelSize.width * layout.pixelSize.height, 12_000_000)
         }
+        XCTAssertEqual(PosterLayout.square.pixelSize, .init(width: 2400, height: 2400))
+        XCTAssertEqual(PosterLayout.widescreen.pixelSize, .init(width: 3200, height: 1800))
     }
 
     func testDraftRoundTrip() throws {
@@ -37,8 +47,10 @@ final class LociTests: XCTestCase {
     }
 
     func testExportAttributionCoversMapSources() {
-        XCTAssertTrue(MapServiceConfiguration.exportAttribution.contains("OPENSTREETMAP"))
-        XCTAssertTrue(MapServiceConfiguration.exportAttribution.contains("OPENMAPTILES"))
+        XCTAssertTrue(MapServiceConfiguration.exportAttribution.localizedCaseInsensitiveContains("OpenStreetMap"))
+        XCTAssertTrue(MapServiceConfiguration.exportAttribution.localizedCaseInsensitiveContains("OpenMapTiles"))
+        XCTAssertTrue(MapServiceConfiguration.compactMapAttribution.contains("ODbL"))
+        XCTAssertEqual(MapServiceConfiguration.posterSignature, "©Loci")
     }
 
     func testViewportUsesPointSizeToCalculateExportScale() {

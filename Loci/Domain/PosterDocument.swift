@@ -27,10 +27,10 @@ struct PosterCamera: Codable, Equatable, Sendable { var latitude: Double; var lo
 struct LayerVisibility: Codable, Equatable, Sendable { var water: Bool; var green: Bool; var buildings: Bool; var roads: Bool; static let all = Self(water: true, green: true, buildings: true, roads: true) }
 struct PosterTypography: Codable, Equatable, Sendable { var cityVisible: Bool; var countryVisible: Bool; var subtitleVisible: Bool; var cityIsUserEdited: Bool; var countryIsUserEdited: Bool; var subtitle: String; static let `default` = Self(cityVisible: true, countryVisible: true, subtitleVisible: true, cityIsUserEdited: false, countryIsUserEdited: false, subtitle: "A PLACE TO REMEMBER") }
 
-enum PosterLayout: String, Codable, CaseIterable, Identifiable, Sendable { case socialPortrait, posterPortrait, landscape, a4Portrait; var id: String { rawValue }
-    var title: String { switch self { case .socialPortrait: "4:5"; case .posterPortrait: "2:3"; case .landscape: "3:2"; case .a4Portrait: "A4" } }
-    var aspectRatio: CGFloat { switch self { case .socialPortrait: 4.0 / 5.0; case .posterPortrait: 2.0 / 3.0; case .landscape: 3.0 / 2.0; case .a4Portrait: 210.0 / 297.0 } }
-    var pixelSize: CGSize { switch self { case .socialPortrait: .init(width: 1920, height: 2400); case .posterPortrait: .init(width: 2000, height: 3000); case .landscape: .init(width: 3000, height: 2000); case .a4Portrait: .init(width: 2100, height: 2970) } }
+enum PosterLayout: String, Codable, CaseIterable, Identifiable, Sendable { case socialPortrait, posterPortrait, square, landscape, widescreen, a4Portrait; var id: String { rawValue }
+    var title: String { switch self { case .socialPortrait: "4:5"; case .posterPortrait: "2:3"; case .square: "1:1"; case .landscape: "3:2"; case .widescreen: "16:9"; case .a4Portrait: "A4" } }
+    var aspectRatio: CGFloat { switch self { case .socialPortrait: 4.0 / 5.0; case .posterPortrait: 2.0 / 3.0; case .square: 1; case .landscape: 3.0 / 2.0; case .widescreen: 16.0 / 9.0; case .a4Portrait: 210.0 / 297.0 } }
+    var pixelSize: CGSize { switch self { case .socialPortrait: .init(width: 1920, height: 2400); case .posterPortrait: .init(width: 2000, height: 3000); case .square: .init(width: 2400, height: 2400); case .landscape: .init(width: 3000, height: 2000); case .widescreen: .init(width: 3200, height: 1800); case .a4Portrait: .init(width: 2100, height: 2970) } }
 }
 
 struct PosterTheme: Identifiable, Equatable, Sendable {
@@ -65,7 +65,7 @@ extension PosterDocument {
     mutating func normalize() {
         schemaVersion = Self.currentSchemaVersion
         if !PosterTheme.all.contains(where: { $0.id == themeID }) { themeID = PosterTheme.defaultID }
-        camera.latitude = camera.latitude.clamped(to: -90...90); camera.longitude = camera.longitude.clamped(to: -180...180); camera.zoom = camera.zoom.clamped(to: 0...22); camera.bearing = 0
+        camera.latitude = camera.latitude.clamped(to: -90...90); camera.longitude = camera.longitude.clamped(to: -180...180); camera.zoom = camera.zoom.clamped(to: 0...22); camera.bearing = camera.bearing.truncatingRemainder(dividingBy: 360); if camera.bearing < 0 { camera.bearing += 360 }
     }
 }
 

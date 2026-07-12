@@ -60,15 +60,20 @@ actor OfflineGazetteer: OfflineGeocodingClient {
         guard let country = country(at: latitude, longitude: longitude) else { return nil }
 
         var city: CityResult?
+        var district: CityResult?
         if zoom >= 7 {
             try openDatabaseIfNeeded()
-            city = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: zoom)
+            city = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: zoom >= 12 ? 11 : zoom)
+            if zoom >= 12 {
+                district = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: 12)
+            }
         }
 
-        let label = [city?.name, city?.administrativeArea, country.name].compactMap { $0 }.filter { !$0.isEmpty }.removingAdjacentDuplicates().joined(separator: ", ")
+        let districtName = district?.name != city?.name ? district?.name : nil
+        let label = [districtName, city?.name, city?.administrativeArea, country.name].compactMap { $0 }.filter { !$0.isEmpty }.removingAdjacentDuplicates().joined(separator: ", ")
         return PlaceSuggestion(
-            id: "offline:\(country.code):\(city?.id ?? 0)", name: label,
-            city: city?.name ?? "", administrativeArea: city?.administrativeArea ?? "",
+            id: "offline:\(country.code):\(city?.id ?? 0):\(district?.id ?? 0)", name: label,
+            district: districtName ?? "", city: city?.name ?? district?.name ?? "", administrativeArea: city?.administrativeArea ?? district?.administrativeArea ?? "",
             country: country.name, countryCode: country.code, continent: country.continent,
             latitude: latitude, longitude: longitude, zoom: zoom
         )

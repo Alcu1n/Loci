@@ -60,11 +60,11 @@ import Observation
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
     func updateCity(_ city: String) {
-        if !document.typography.cityIsUserEdited { document.typography.cityOverrideAnchor = Self.locationAnchor(from: document.location, zoom: document.camera.zoom) }
+        if !document.typography.cityIsUserEdited { document.typography.cityOverrideAnchor = Self.locationAnchor(from: document.location) }
         document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save()
     }
     func updateCountry(_ country: String) {
-        if !document.typography.countryIsUserEdited { document.typography.countryOverrideAnchor = Self.locationAnchor(from: document.location, zoom: document.camera.zoom) }
+        if !document.typography.countryIsUserEdited { document.typography.countryOverrideAnchor = Self.locationAnchor(from: document.location) }
         document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save()
     }
     func select(_ suggestion: PlaceSuggestion) {
@@ -277,8 +277,8 @@ import Observation
         }
     }
 
-    private static func locationAnchor(from location: PosterLocation, zoom: Double) -> AutomaticLocationAnchor {
-        .init(name: location.city?.nilIfEmpty, administrativeArea: location.administrativeArea?.nilIfEmpty, country: location.country?.nilIfEmpty, countryCode: location.countryCode?.nilIfEmpty, nameIsCity: zoom < 12)
+    private static func locationAnchor(from location: PosterLocation) -> AutomaticLocationAnchor {
+        .init(name: location.city?.nilIfEmpty, administrativeArea: location.administrativeArea?.nilIfEmpty, country: location.country?.nilIfEmpty, countryCode: location.countryCode?.nilIfEmpty, nameIsCity: true)
     }
 
     private static func migratedCityAnchor(from document: PosterDocument) -> AutomaticLocationAnchor? {

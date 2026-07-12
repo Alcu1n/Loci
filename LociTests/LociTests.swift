@@ -65,12 +65,15 @@ final class LociTests: XCTestCase {
         let tokyo = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 7)
         let paris = try await resolver.resolve(latitude: 48.8566, longitude: 2.3522, zoom: 7)
         let urumqi = try await resolver.resolve(latitude: 43.80096, longitude: 87.60046, zoom: 7)
+        let tokyoDistrict = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 12)
 
         XCTAssertEqual(tokyo?.city, "Tokyo")
         XCTAssertEqual(tokyo?.countryCode, "JP")
         XCTAssertEqual(paris?.city, "Paris")
         XCTAssertEqual(paris?.countryCode, "FR")
         XCTAssertEqual(urumqi?.city, "Ürümqi")
+        XCTAssertEqual(tokyoDistrict?.city, "Tokyo")
+        XCTAssertFalse(tokyoDistrict?.district.isEmpty ?? true)
     }
 
     func testLocationPresentationNeverRepeatsEquivalentLabels() {
@@ -152,6 +155,7 @@ final class LociTests: XCTestCase {
         document.location.administrativeArea = "TOKYO"
         document.location.countryCode = "JP"
         document.location.country = "JAPAN"
+        document.camera.zoom = 12
         document.typography.cityIsUserEdited = true
         let suburb = PlaceSuggestion(name: "Setagaya, Tokyo, Japan", city: "Setagaya", administrativeArea: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6466, longitude: 139.6533, zoom: 12)
         let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: suburb))

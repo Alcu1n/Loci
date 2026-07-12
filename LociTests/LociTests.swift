@@ -101,12 +101,9 @@ final class LociTests: XCTestCase {
 
     @MainActor
     func testMovingToAnotherCityClearsManualCityOverride() async {
-        var document = PosterDocument.tokyo
-        document.location.city = "SHANGHAI"
-        document.title = "SHANGHAI"
-        document.typography.cityIsUserEdited = true
         let hongKong = PlaceSuggestion(name: "Hong Kong, Hong Kong", city: "Hong Kong", country: "Hong Kong", countryCode: "HK", continent: "Asia", latitude: 22.3193, longitude: 114.1694, zoom: 7)
-        let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: hongKong))
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: hongKong))
+        store.updateCity("SHANGHAI")
         let viewport = MapViewport(camera: .init(latitude: 22.3193, longitude: 114.1694, zoom: 7), size: .init(width: 300, height: 400))
 
         store.settleViewport(viewport)
@@ -119,13 +116,29 @@ final class LociTests: XCTestCase {
 
     @MainActor
     func testMovingWithinSameCityKeepsManualCityOverride() async {
+        let tokyo = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.70, longitude: 139.72, zoom: 7)
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: tokyo))
+        store.updateCity("MY TOKYO")
+        let viewport = MapViewport(camera: .init(latitude: 35.70, longitude: 139.72, zoom: 7), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(40))
+
+        XCTAssertEqual(store.document.location.city, "MY TOKYO")
+        XCTAssertTrue(store.document.typography.cityIsUserEdited)
+    }
+
+    @MainActor
+    func testExistingHighZoomOverrideUsesAdministrativeCityAnchor() async {
         var document = PosterDocument.tokyo
         document.location.city = "MY TOKYO"
-        document.title = "MY TOKYO"
+        document.location.administrativeArea = "TOKYO"
+        document.location.countryCode = "JP"
+        document.location.country = "JAPAN"
         document.typography.cityIsUserEdited = true
-        let tokyo = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.70, longitude: 139.72, zoom: 7)
-        let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: tokyo))
-        let viewport = MapViewport(camera: .init(latitude: 35.70, longitude: 139.72, zoom: 7), size: .init(width: 300, height: 400))
+        let suburb = PlaceSuggestion(name: "Setagaya, Tokyo, Japan", city: "Setagaya", administrativeArea: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6466, longitude: 139.6533, zoom: 12)
+        let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: suburb))
+        let viewport = MapViewport(camera: .init(latitude: 35.6466, longitude: 139.6533, zoom: 12), size: .init(width: 300, height: 400))
 
         store.settleViewport(viewport)
         try? await Task.sleep(for: .milliseconds(40))

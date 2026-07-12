@@ -50,9 +50,25 @@ struct LocationPresentation: Equatable, Sendable {
     let primary: String
     let secondary: String
 }
+struct AutomaticLocationAnchor: Codable, Equatable, Sendable {
+    var name: String?
+    var administrativeArea: String?
+    var country: String?
+    var countryCode: String?
+}
 struct PosterCamera: Codable, Equatable, Sendable { var latitude: Double; var longitude: Double; var zoom: Double; var bearing: Double = 0 }
 struct LayerVisibility: Codable, Equatable, Sendable { var water: Bool; var green: Bool; var buildings: Bool; var roads: Bool; static let all = Self(water: true, green: true, buildings: true, roads: true) }
-struct PosterTypography: Codable, Equatable, Sendable { var cityVisible: Bool; var countryVisible: Bool; var subtitleVisible: Bool; var cityIsUserEdited: Bool; var countryIsUserEdited: Bool; var subtitle: String; static let `default` = Self(cityVisible: true, countryVisible: true, subtitleVisible: true, cityIsUserEdited: false, countryIsUserEdited: false, subtitle: "A PLACE TO REMEMBER") }
+struct PosterTypography: Codable, Equatable, Sendable {
+    var cityVisible: Bool
+    var countryVisible: Bool
+    var subtitleVisible: Bool
+    var cityIsUserEdited: Bool
+    var countryIsUserEdited: Bool
+    var subtitle: String
+    var cityOverrideAnchor: AutomaticLocationAnchor? = nil
+    var countryOverrideAnchor: AutomaticLocationAnchor? = nil
+    static let `default` = Self(cityVisible: true, countryVisible: true, subtitleVisible: true, cityIsUserEdited: false, countryIsUserEdited: false, subtitle: "A PLACE TO REMEMBER")
+}
 
 enum PosterLayout: String, Codable, CaseIterable, Identifiable, Sendable { case socialPortrait, posterPortrait, square, landscape, widescreen, a4Portrait; var id: String { rawValue }
     var title: String { switch self { case .socialPortrait: "4:5"; case .posterPortrait: "2:3"; case .square: "1:1"; case .landscape: "3:2"; case .widescreen: "9:16"; case .a4Portrait: "A4" } }

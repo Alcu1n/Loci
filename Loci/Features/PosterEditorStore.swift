@@ -28,8 +28,6 @@ import Observation
     private var viewportTask: Task<Void, Never>?
     private var settledViewportTask: Task<Void, Never>?
     private var offlineGeneration = 0
-    private var manualCityAnchor: String?
-    private var manualCountryAnchor: String?
 
     init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, offlineGeocoder: any OfflineGeocodingClient = EmptyOfflineGeocodingClient(), exporter: any ExportService, currentLocation: any CurrentLocationClient, photoLibrary: any PhotoLibrarySaver) {
         self.document = document
@@ -39,8 +37,12 @@ import Observation
         self.exporter = exporter
         self.currentLocation = currentLocation
         self.photoLibrary = photoLibrary
-        if document.typography.cityIsUserEdited { manualCityAnchor = Self.automaticCityName(in: document) }
-        if document.typography.countryIsUserEdited { manualCountryAnchor = Self.automaticCountryName(in: document) }
+        if document.typography.cityIsUserEdited, document.typography.cityOverrideAnchor == nil {
+            self.document.typography.cityOverrideAnchor = Self.migratedCityAnchor(from: document)
+        }
+        if document.typography.countryIsUserEdited, document.typography.countryOverrideAnchor == nil {
+            self.document.typography.countryOverrideAnchor = Self.migratedCountryAnchor(from: document)
+        }
     }
 
     static func live() -> PosterEditorStore {
@@ -53,24 +55,24 @@ import Observation
     }
 
     func save() { document.updatedAt = .now; do { try drafts.save(document) } catch { errorMessage = error.localizedDescription } }
-    func newPoster() { invalidateLocationLookups(); document = .tokyo; manualCityAnchor = nil; manualCountryAnchor = nil; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
+    func newPoster() { invalidateLocationLookups(); document = .tokyo; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
     func selectTheme(_ theme: PosterTheme) { document.themeID = theme.id; save() }
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
     func updateCity(_ city: String) {
-        if !document.typography.cityIsUserEdited { manualCityAnchor = Self.automaticCityName(in: document) }
+        if !document.typography.cityIsUserEdited { document.typography.cityOverrideAnchor = Self.locationAnchor(from: document.location) }
         document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save()
     }
     func updateCountry(_ country: String) {
-        if !document.typography.countryIsUserEdited { manualCountryAnchor = Self.automaticCountryName(in: document) }
+        if !document.typography.countryIsUserEdited { document.typography.countryOverrideAnchor = Self.locationAnchor(from: document.location) }
         document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save()
     }
     func select(_ suggestion: PlaceSuggestion) {
         invalidateLocationLookups()
-        manualCityAnchor = nil
-        manualCountryAnchor = nil
         document.typography.cityIsUserEdited = false
         document.typography.countryIsUserEdited = false
+        document.typography.cityOverrideAnchor = nil
+        document.typography.countryOverrideAnchor = nil
         applyResolvedLocation(suggestion)
         document.camera = .init(latitude: suggestion.latitude, longitude: suggestion.longitude, zoom: suggestion.zoom)
         previewViewport = nil
@@ -260,29 +262,33 @@ import Observation
     private func resetManualOverridesIfLocationChanged(to suggestion: PlaceSuggestion) {
         let resolvedCity = suggestion.city.uppercased().nilIfEmpty ?? suggestion.administrativeArea.uppercased().nilIfEmpty
         if document.typography.cityIsUserEdited,
-           let manualCityAnchor,
-           let resolvedCity,
-           NominatimResponseParser.normalized(manualCityAnchor) != NominatimResponseParser.normalized(resolvedCity) {
+           let anchor = document.typography.cityOverrideAnchor,
+           !anchor.matches(city: resolvedCity, administrativeArea: suggestion.administrativeArea, country: suggestion.country, countryCode: suggestion.countryCode) {
             document.typography.cityIsUserEdited = false
-            self.manualCityAnchor = nil
+            document.typography.cityOverrideAnchor = nil
         }
         let resolvedCountry = suggestion.countryCode.uppercased().nilIfEmpty ?? suggestion.country.uppercased().nilIfEmpty
         if document.typography.countryIsUserEdited,
-           let manualCountryAnchor,
+           let anchor = document.typography.countryOverrideAnchor,
            let resolvedCountry,
-           NominatimResponseParser.normalized(manualCountryAnchor) != NominatimResponseParser.normalized(resolvedCountry) {
+           !anchor.matches(country: suggestion.country, countryCode: suggestion.countryCode) {
             document.typography.countryIsUserEdited = false
-            self.manualCountryAnchor = nil
+            document.typography.countryOverrideAnchor = nil
         }
     }
 
-    private static func automaticCityName(in document: PosterDocument) -> String? {
-        let resolved = document.location.resolvedName?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return resolved?.nilIfEmpty ?? document.location.city?.nilIfEmpty
+    private static func locationAnchor(from location: PosterLocation) -> AutomaticLocationAnchor {
+        .init(name: location.city?.nilIfEmpty, administrativeArea: location.administrativeArea?.nilIfEmpty, country: location.country?.nilIfEmpty, countryCode: location.countryCode?.nilIfEmpty)
     }
 
-    private static func automaticCountryName(in document: PosterDocument) -> String? {
-        document.location.countryCode?.nilIfEmpty ?? document.location.country?.nilIfEmpty
+    private static func migratedCityAnchor(from document: PosterDocument) -> AutomaticLocationAnchor? {
+        let anchor = AutomaticLocationAnchor(name: nil, administrativeArea: document.location.administrativeArea?.nilIfEmpty, country: nil, countryCode: document.location.countryCode?.nilIfEmpty)
+        return anchor.administrativeArea != nil || anchor.countryCode != nil ? anchor : nil
+    }
+
+    private static func migratedCountryAnchor(from document: PosterDocument) -> AutomaticLocationAnchor? {
+        let anchor = AutomaticLocationAnchor(name: nil, administrativeArea: nil, country: nil, countryCode: document.location.countryCode?.nilIfEmpty)
+        return anchor.countryCode != nil ? anchor : nil
     }
     func useCurrentLocation() async { guard !isLocating else { return }; isLocating = true; defer { isLocating = false }; do { select(try await currentLocation.locate()) } catch { errorMessage = error.localizedDescription } }
     func export() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { exportedURL = try await exporter.export(document: document, viewport: previewViewport) } catch { errorMessage = error.localizedDescription } }
@@ -290,3 +296,20 @@ import Observation
 }
 
 private extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }
+
+private extension AutomaticLocationAnchor {
+    func matches(city: String?, administrativeArea: String, country: String, countryCode: String) -> Bool {
+        guard matches(country: country, countryCode: countryCode) else { return false }
+        let expectedNames = [name, self.administrativeArea].compactMap { $0 }.map(NominatimResponseParser.normalized).filter { !$0.isEmpty }
+        let actualNames = [city ?? "", administrativeArea].map(NominatimResponseParser.normalized).filter { !$0.isEmpty }
+        return expectedNames.isEmpty || actualNames.isEmpty || !expectedNames.filter(actualNames.contains).isEmpty
+    }
+
+    func matches(country: String, countryCode: String) -> Bool {
+        if let expectedCode = self.countryCode?.nilIfEmpty, let actualCode = countryCode.uppercased().nilIfEmpty,
+           NominatimResponseParser.normalized(expectedCode) != NominatimResponseParser.normalized(actualCode) { return false }
+        if let expectedCountry = self.country?.nilIfEmpty, let actualCountry = country.nilIfEmpty,
+           NominatimResponseParser.normalized(expectedCountry) != NominatimResponseParser.normalized(actualCountry) { return false }
+        return true
+    }
+}

@@ -28,8 +28,20 @@ import Observation
     private var viewportTask: Task<Void, Never>?
     private var settledViewportTask: Task<Void, Never>?
     private var offlineGeneration = 0
+    private var manualCityAnchor: String?
+    private var manualCountryAnchor: String?
 
-    init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, offlineGeocoder: any OfflineGeocodingClient = EmptyOfflineGeocodingClient(), exporter: any ExportService, currentLocation: any CurrentLocationClient, photoLibrary: any PhotoLibrarySaver) { self.document = document; self.drafts = drafts; self.geocoder = geocoder; self.offlineGeocoder = offlineGeocoder; self.exporter = exporter; self.currentLocation = currentLocation; self.photoLibrary = photoLibrary }
+    init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, offlineGeocoder: any OfflineGeocodingClient = EmptyOfflineGeocodingClient(), exporter: any ExportService, currentLocation: any CurrentLocationClient, photoLibrary: any PhotoLibrarySaver) {
+        self.document = document
+        self.drafts = drafts
+        self.geocoder = geocoder
+        self.offlineGeocoder = offlineGeocoder
+        self.exporter = exporter
+        self.currentLocation = currentLocation
+        self.photoLibrary = photoLibrary
+        if document.typography.cityIsUserEdited { manualCityAnchor = Self.automaticCityName(in: document) }
+        if document.typography.countryIsUserEdited { manualCountryAnchor = Self.automaticCountryName(in: document) }
+    }
 
     static func live() -> PosterEditorStore {
         let drafts = UserDefaultsDraftRepository(); let renderer = MapLibreRenderer(); let compositor = CoreGraphicsCompositor()
@@ -41,14 +53,22 @@ import Observation
     }
 
     func save() { document.updatedAt = .now; do { try drafts.save(document) } catch { errorMessage = error.localizedDescription } }
-    func newPoster() { invalidateLocationLookups(); document = .tokyo; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
+    func newPoster() { invalidateLocationLookups(); document = .tokyo; manualCityAnchor = nil; manualCountryAnchor = nil; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
     func selectTheme(_ theme: PosterTheme) { document.themeID = theme.id; save() }
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
-    func updateCity(_ city: String) { document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save() }
-    func updateCountry(_ country: String) { document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save() }
+    func updateCity(_ city: String) {
+        if !document.typography.cityIsUserEdited { manualCityAnchor = Self.automaticCityName(in: document) }
+        document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save()
+    }
+    func updateCountry(_ country: String) {
+        if !document.typography.countryIsUserEdited { manualCountryAnchor = Self.automaticCountryName(in: document) }
+        document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save()
+    }
     func select(_ suggestion: PlaceSuggestion) {
         invalidateLocationLookups()
+        manualCityAnchor = nil
+        manualCountryAnchor = nil
         document.typography.cityIsUserEdited = false
         document.typography.countryIsUserEdited = false
         applyResolvedLocation(suggestion)
@@ -124,6 +144,7 @@ import Observation
                 document.location.latitude = viewport.camera.latitude
                 document.location.longitude = viewport.camera.longitude
                 if let resolved {
+                    resetManualOverridesIfLocationChanged(to: resolved)
                     applyResolvedLocation(resolved, updateCoordinates: false)
                     if resolved.district.isEmpty { lastDistrictLookupCoordinate = nil }
                 }
@@ -234,6 +255,34 @@ import Observation
             document.location.administrativeArea = suggestion.administrativeArea.uppercased().nilIfEmpty
         }
         document.location.resolvedName = suggestion.name
+    }
+
+    private func resetManualOverridesIfLocationChanged(to suggestion: PlaceSuggestion) {
+        let resolvedCity = suggestion.city.uppercased().nilIfEmpty ?? suggestion.administrativeArea.uppercased().nilIfEmpty
+        if document.typography.cityIsUserEdited,
+           let manualCityAnchor,
+           let resolvedCity,
+           NominatimResponseParser.normalized(manualCityAnchor) != NominatimResponseParser.normalized(resolvedCity) {
+            document.typography.cityIsUserEdited = false
+            self.manualCityAnchor = nil
+        }
+        let resolvedCountry = suggestion.countryCode.uppercased().nilIfEmpty ?? suggestion.country.uppercased().nilIfEmpty
+        if document.typography.countryIsUserEdited,
+           let manualCountryAnchor,
+           let resolvedCountry,
+           NominatimResponseParser.normalized(manualCountryAnchor) != NominatimResponseParser.normalized(resolvedCountry) {
+            document.typography.countryIsUserEdited = false
+            self.manualCountryAnchor = nil
+        }
+    }
+
+    private static func automaticCityName(in document: PosterDocument) -> String? {
+        let resolved = document.location.resolvedName?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return resolved?.nilIfEmpty ?? document.location.city?.nilIfEmpty
+    }
+
+    private static func automaticCountryName(in document: PosterDocument) -> String? {
+        document.location.countryCode?.nilIfEmpty ?? document.location.country?.nilIfEmpty
     }
     func useCurrentLocation() async { guard !isLocating else { return }; isLocating = true; defer { isLocating = false }; do { select(try await currentLocation.locate()) } catch { errorMessage = error.localizedDescription } }
     func export() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { exportedURL = try await exporter.export(document: document, viewport: previewViewport) } catch { errorMessage = error.localizedDescription } }

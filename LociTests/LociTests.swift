@@ -169,6 +169,26 @@ final class LociTests: XCTestCase {
     }
 
     @MainActor
+    func testHighZoomMoveToDifferentCityInSameAdminClearsCityOverride() async {
+        var document = PosterDocument.tokyo
+        document.location.city = "Paris"
+        document.location.administrativeArea = "Texas"
+        document.location.country = "United States"
+        document.location.countryCode = "US"
+        document.camera.zoom = 12
+        let austin = PlaceSuggestion(name: "Austin, Texas, United States", city: "Austin", administrativeArea: "Texas", country: "United States", countryCode: "US", continent: "North America", latitude: 30.2672, longitude: -97.7431, zoom: 12)
+        let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: austin))
+        store.updateCity("PARIS")
+        let viewport = MapViewport(camera: .init(latitude: 30.2672, longitude: -97.7431, zoom: 12), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(40))
+
+        XCTAssertEqual(store.document.location.city, "AUSTIN")
+        XCTAssertFalse(store.document.typography.cityIsUserEdited)
+    }
+
+    @MainActor
     func testMapMovementPreventsLateOnlineResultFromOverwritingOfflineLabel() async {
         let japan = PlaceSuggestion(name: "Japan", city: "", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 6)
         let store = makeStore(document: .tokyo, geocoder: DelayedGeocoder(), offlineGeocoder: StubOfflineGeocoder(result: japan))

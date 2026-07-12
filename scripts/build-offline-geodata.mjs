@@ -16,24 +16,27 @@ mkdirSync(work, { recursive: true });
 
 const sources = {
   naturalEarth: {
-    url: "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_50m_admin_0_countries.geojson",
-    sha256: "3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb",
+    url: "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_10m_admin_0_countries.geojson",
+    sha256: "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255",
     version: "5.1.2",
   },
   geoNamesCities: {
     url: "https://download.geonames.org/export/dump/cities1000.zip",
+    vendoredPath: "scripts/offline-geodata-sources/cities1000-2026-07-12.zip",
     sha256: "f3a02b4644c48bddded6bf70a579a4b6af8a6ed657a91728eb3873e327c187ba",
     snapshot: "2026-07-12",
   },
   geoNamesAdmin1: {
     url: "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+    vendoredPath: "scripts/offline-geodata-sources/admin1CodesASCII-2026-07-12.txt",
     sha256: "34784457b76b988a669dff7c3e4b104e4902c0875643cff019281ac79dfa2992",
     snapshot: "2026-07-12",
   },
 };
 
 async function download(source, filename) {
-  const destination = path.join(work, filename);
+  const vendored = source.vendoredPath ? path.join(root, source.vendoredPath) : null;
+  const destination = vendored && existsSync(vendored) ? vendored : path.join(work, filename);
   if (!existsSync(destination)) {
     const response = await fetch(source.url);
     if (!response.ok || !response.body) throw new Error(`Download failed: ${source.url} (${response.status})`);
@@ -49,7 +52,7 @@ function quantize(value) {
 }
 
 async function buildCountries() {
-  const sourcePath = await download(sources.naturalEarth, "countries.geojson");
+  const sourcePath = await download(sources.naturalEarth, "countries-10m.geojson");
   const geojson = JSON.parse(readFileSync(sourcePath, "utf8"));
   const countries = geojson.features.map((feature) => {
     const geometry = feature.geometry;
@@ -85,14 +88,14 @@ async function buildCities() {
   for await (const line of lines) {
     const fields = line.split("\t");
     if (fields.length < 19) continue;
-    const [id, name, asciiName, , latitude, longitude, , featureCode, countryCode, , admin1Code, , , , population] = fields;
+    const [id, name, asciiName, , latitude, longitude, featureClass, featureCode, countryCode, , admin1Code, , , , population] = fields;
     const parsedLatitude = Number(latitude);
     const parsedLongitude = Number(longitude);
     if (!Number.isInteger(Number(id)) || !Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude) || Math.abs(parsedLatitude) > 90 || Math.abs(parsedLongitude) > 180) continue;
-    if (Number(population || 0) < 5_000 && !featureCode.startsWith("PPLA")) continue;
+    if (featureClass !== "P") continue;
     const clean = (value) => String(value || "").replaceAll("\t", " ").replaceAll("\n", " ");
     const adminName = adminNames.get(`${countryCode}.${admin1Code}`) || "";
-    writer.write([id, clean(asciiName || name), latitude, longitude, countryCode, clean(adminName), featureCode, population || "0"].join("\t") + "\n");
+    writer.write([id, clean(name), clean(asciiName || name), latitude, longitude, countryCode, clean(adminName), featureCode, population || "0"].join("\t") + "\n");
   }
   writer.end();
   await new Promise((resolve, reject) => { writer.on("finish", resolve); writer.on("error", reject); });
@@ -103,7 +106,7 @@ async function buildCities() {
 PRAGMA journal_mode=OFF;
 PRAGMA synchronous=OFF;
 PRAGMA page_size=4096;
-CREATE TABLE cities(id INTEGER PRIMARY KEY, name TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, country_code TEXT NOT NULL, admin_name TEXT NOT NULL, feature_code TEXT NOT NULL, population INTEGER NOT NULL);
+CREATE TABLE cities(id INTEGER PRIMARY KEY, name TEXT NOT NULL, ascii_name TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, country_code TEXT NOT NULL, admin_name TEXT NOT NULL, feature_code TEXT NOT NULL, population INTEGER NOT NULL);
 .mode tabs
 .import '${importPath.replaceAll("'", "''")}' cities
 CREATE VIRTUAL TABLE city_index USING rtree(id, min_latitude, max_latitude, min_longitude, max_longitude);
@@ -121,10 +124,17 @@ const countryOutput = path.join(output, "countries.json");
 const cityOutput = path.join(output, "cities.sqlite");
 const digest = (filename) => createHash("sha256").update(readFileSync(filename)).digest("hex");
 const rowCount = Number(spawnSync("sqlite3", [cityOutput, "SELECT count(*) FROM cities;"], { encoding: "utf8" }).stdout.trim());
+const administrativeCenterCounts = Object.fromEntries(
+  spawnSync("sqlite3", ["-separator", "\t", cityOutput, "SELECT feature_code, count(*) FROM cities WHERE feature_code IN ('PPLC','PPLA','PPLA2','PPLA3','PPLA4','PPLA5') GROUP BY feature_code ORDER BY feature_code;"], { encoding: "utf8" })
+    .stdout.trim().split("\n").filter(Boolean).map((line) => { const [code, count] = line.split("\t"); return [code, Number(count)]; }),
+);
 const outputs = {
   countries: { bytes: statSync(countryOutput).size, sha256: digest(countryOutput), featureCount: countryCount },
-  cities: { bytes: statSync(cityOutput).size, sha256: digest(cityOutput), rowCount, filter: "population >= 5000 OR feature_code LIKE PPLA%" },
+  cities: { bytes: statSync(cityOutput).size, sha256: digest(cityOutput), rowCount, administrativeCenterCounts, filter: "all valid feature_class P rows from cities1000" },
 };
-if (outputs.countries.bytes > 3 * 1024 * 1024) throw new Error("countries.json exceeds 3 MB");
-if (outputs.cities.bytes > 15 * 1024 * 1024) throw new Error("cities.sqlite exceeds 15 MB");
+if (outputs.countries.bytes > 25 * 1024 * 1024) throw new Error("countries.json exceeds 25 MB");
+if (outputs.cities.bytes > 35 * 1024 * 1024) throw new Error("cities.sqlite exceeds 35 MB");
+if (outputs.countries.featureCount < 250) throw new Error("country coverage unexpectedly incomplete");
+if (outputs.cities.rowCount < 165_000) throw new Error("city coverage unexpectedly incomplete");
+if (["PPLC", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5"].some((code) => !administrativeCenterCounts[code])) throw new Error("administrative center coverage unexpectedly incomplete");
 writeFileSync(path.join(output, "sources.json"), JSON.stringify({ generatedAt: "2026-07-12", sources, outputs }, null, 2) + "\n");

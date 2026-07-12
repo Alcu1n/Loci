@@ -7,6 +7,7 @@ import MapLibre
 struct MapLibreMapView: UIViewRepresentable {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportInteractionBegan: () -> Void
     let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
 
@@ -28,6 +29,7 @@ struct MapLibreMapView: UIViewRepresentable {
         let target = document.coordinate
         let directionDelta = abs(mapView.direction.shortestDelta(to: document.camera.bearing))
         if mapView.centerCoordinate.distance(to: target) > 0.00001 || abs(mapView.zoomLevel - document.camera.zoom) > 0.01 || directionDelta > 0.1 {
+            context.coordinator.programmaticTarget = document.camera
             context.coordinator.isApplyingDocument = true
             mapView.setCenter(target, zoomLevel: document.camera.zoom, direction: document.camera.bearing, animated: false)
             context.coordinator.isApplyingDocument = false
@@ -38,6 +40,7 @@ struct MapLibreMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MLNMapViewDelegate {
         var parent: MapLibreMapView
         var isApplyingDocument = false
+        var programmaticTarget: PosterCamera?
         var shouldReportViewportChanges: Bool { !isApplyingDocument }
 
         init(parent: MapLibreMapView) { self.parent = parent }
@@ -48,16 +51,24 @@ struct MapLibreMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
-            guard shouldReportViewportChanges else { return }
             if let viewport = viewport(mapView) {
-                parent.onViewportChange(viewport)
+                if let target = programmaticTarget {
+                    programmaticTarget = nil
+                    if viewport.camera.isApproximatelyEqual(to: target) { return }
+                }
+                guard shouldReportViewportChanges else { return }
                 parent.onViewportSettled(viewport)
             }
         }
 
+        func mapView(_ mapView: MLNMapView, regionWillChangeAnimated animated: Bool) {
+            guard shouldReportViewportChanges else { return }
+            if programmaticTarget != nil { return }
+            parent.onViewportInteractionBegan()
+        }
+
         func mapViewRegionIsChanging(_ mapView: MLNMapView) {
-            guard shouldReportViewportChanges, let viewport = viewport(mapView) else { return }
-            parent.onViewportChange(viewport)
+            // Keep the last committed camera and location text stable until movement ends.
         }
 
         private func reportViewport(_ mapView: MLNMapView) {
@@ -79,6 +90,15 @@ struct MapLibreMapView: UIViewRepresentable {
         func mapViewDidFailLoadingMap(_ mapView: MLNMapView, withError error: Error) {
             parent.onFailure(error.localizedDescription)
         }
+    }
+}
+
+private extension PosterCamera {
+    func isApproximatelyEqual(to other: PosterCamera) -> Bool {
+        abs(latitude - other.latitude) < 0.00001 &&
+        abs(longitude - other.longitude) < 0.00001 &&
+        abs(zoom - other.zoom) < 0.01 &&
+        abs(bearing.shortestDelta(to: other.bearing)) < 0.1
     }
 }
 

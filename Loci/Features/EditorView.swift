@@ -8,7 +8,7 @@ struct EditorView: View {
             GeometryReader { proxy in
                 VStack(spacing: 0) {
                     toolbar(topInset: proxy.safeAreaInsets.top)
-                    PosterPreview(document: store.document, onViewportChange: store.updateViewport, onViewportSettled: store.settleViewport, onFailure: { store.errorMessage = $0 })
+                    PosterPreview(document: store.document, onViewportChange: store.updateViewport, onViewportInteractionBegan: store.beginViewportInteraction, onViewportSettled: store.settleViewport, onFailure: { store.errorMessage = $0 })
                         .padding(.horizontal, 18).padding(.vertical, 12)
                         .frame(maxHeight: .infinity)
                     editorBar(bottomInset: proxy.safeAreaInsets.bottom)
@@ -88,21 +88,23 @@ struct EditorView: View {
 private struct PosterPreview: View {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportInteractionBegan: () -> Void
     let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
-    var body: some View { GeometryReader { proxy in let width = proxy.size.width; let height = min(proxy.size.height, width / document.layout.aspectRatio); PosterArtwork(document: document, onViewportChange: onViewportChange, onViewportSettled: onViewportSettled, onFailure: onFailure).frame(width: width, height: height).frame(maxHeight: .infinity, alignment: .center) }.aspectRatio(document.layout.aspectRatio, contentMode: .fit).accessibilityLabel("Poster preview for \(document.locationPresentation.primary)") }
+    var body: some View { GeometryReader { proxy in let width = proxy.size.width; let height = min(proxy.size.height, width / document.layout.aspectRatio); PosterArtwork(document: document, onViewportChange: onViewportChange, onViewportInteractionBegan: onViewportInteractionBegan, onViewportSettled: onViewportSettled, onFailure: onFailure).frame(width: width, height: height).frame(maxHeight: .infinity, alignment: .center) }.aspectRatio(document.layout.aspectRatio, contentMode: .fit).accessibilityLabel("Poster preview for \(document.locationPresentation.primary)") }
 }
 
 struct PosterArtwork: View {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportInteractionBegan: () -> Void
     let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
     private var theme: PosterTheme { PosterTheme.all.first(where: { $0.id == document.themeID }) ?? PosterTheme.all[0] }
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
-                MapLibreMapView(document: document, onViewportChange: onViewportChange, onViewportSettled: onViewportSettled, onFailure: onFailure)
+                MapLibreMapView(document: document, onViewportChange: onViewportChange, onViewportInteractionBegan: onViewportInteractionBegan, onViewportSettled: onViewportSettled, onFailure: onFailure)
                     .overlay(alignment: .top) {
                         LinearGradient(colors: [Color(hex: theme.background).opacity(Double(PosterFade.opacity)), .clear], startPoint: .top, endPoint: .bottom)
                             .frame(height: proxy.size.height * PosterFade.topFraction).allowsHitTesting(false)

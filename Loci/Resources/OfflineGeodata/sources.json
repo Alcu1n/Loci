@@ -2,32 +2,42 @@
   "generatedAt": "2026-07-12",
   "sources": {
     "naturalEarth": {
-      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_50m_admin_0_countries.geojson",
-      "sha256": "3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb",
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_10m_admin_0_countries.geojson",
+      "sha256": "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255",
       "version": "5.1.2"
     },
     "geoNamesCities": {
       "url": "https://download.geonames.org/export/dump/cities1000.zip",
+      "vendoredPath": "scripts/offline-geodata-sources/cities1000-2026-07-12.zip",
       "sha256": "f3a02b4644c48bddded6bf70a579a4b6af8a6ed657a91728eb3873e327c187ba",
       "snapshot": "2026-07-12"
     },
     "geoNamesAdmin1": {
       "url": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+      "vendoredPath": "scripts/offline-geodata-sources/admin1CodesASCII-2026-07-12.txt",
       "sha256": "34784457b76b988a669dff7c3e4b104e4902c0875643cff019281ac79dfa2992",
       "snapshot": "2026-07-12"
     }
   },
   "outputs": {
     "countries": {
-      "bytes": 1865459,
-      "sha256": "ddcc07e022df9125c6187630bba8c5304d9b604878a14f34001d60323c3cec17",
-      "featureCount": 242
+      "bytes": 10210521,
+      "sha256": "b5822299feb35408569ec466c44a3c916cf9706bf0a9354ace87ac6850e26e2b",
+      "featureCount": 258
     },
     "cities": {
-      "bytes": 12484608,
-      "sha256": "820e7bbde8df9bd960f056128485372d49ca293287156891d3dc338870d2b308",
-      "rowCount": 108829,
-      "filter": "population >= 5000 OR feature_code LIKE PPLA%"
+      "bytes": 21450752,
+      "sha256": "bfbc07ce706b8f8908934de9361926b2669a4e08f1e520f0a0cc7c8f5832ee38",
+      "rowCount": 170380,
+      "administrativeCenterCounts": {
+        "PPLA": 3462,
+        "PPLA2": 23314,
+        "PPLA3": 30518,
+        "PPLA4": 5483,
+        "PPLA5": 29,
+        "PPLC": 241
+      },
+      "filter": "all valid feature_class P rows from cities1000"
     }
   }
 }

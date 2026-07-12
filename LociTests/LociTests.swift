@@ -1,5 +1,8 @@
 import XCTest
 @testable import Loci
+#if canImport(MapLibre)
+import MapLibre
+#endif
 
 final class LociTests: XCTestCase {
     func testOfflineGazetteerResolvesCountriesImmediatelyAcrossContinents() async throws {
@@ -8,6 +11,13 @@ final class LociTests: XCTestCase {
         let china = try await resolver.resolve(latitude: 30.5728, longitude: 104.0668, zoom: 6)
         let japan = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 6)
         let unitedStates = try await resolver.resolve(latitude: 40.7128, longitude: -74.0060, zoom: 6)
+        let kenya = try await resolver.resolve(latitude: -1.286, longitude: 36.817, zoom: 6)
+        let brazil = try await resolver.resolve(latitude: -23.55, longitude: -46.63, zoom: 6)
+        let australia = try await resolver.resolve(latitude: -33.86, longitude: 151.21, zoom: 6)
+        let france = try await resolver.resolve(latitude: 48.85, longitude: 2.35, zoom: 6)
+        let singapore = try await resolver.resolve(latitude: 1.352, longitude: 103.819, zoom: 6)
+        let fijiWest = try await resolver.resolve(latitude: -18.2365, longitude: -178.8123, zoom: 6)
+        let fijiEast = try await resolver.resolve(latitude: -16.43, longitude: 179.3645, zoom: 6)
         let ocean = try await resolver.resolve(latitude: 0, longitude: -140, zoom: 6)
 
         XCTAssertEqual(china?.countryCode, "CN")
@@ -15,6 +25,13 @@ final class LociTests: XCTestCase {
         XCTAssertEqual(japan?.countryCode, "JP")
         XCTAssertEqual(japan?.country, "Japan")
         XCTAssertEqual(unitedStates?.countryCode, "US")
+        XCTAssertEqual(kenya?.countryCode, "KE")
+        XCTAssertEqual(brazil?.countryCode, "BR")
+        XCTAssertEqual(australia?.countryCode, "AU")
+        XCTAssertEqual(france?.countryCode, "FR")
+        XCTAssertEqual(singapore?.countryCode, "SG")
+        XCTAssertEqual(fijiWest?.countryCode, "FJ")
+        XCTAssertEqual(fijiEast?.countryCode, "FJ")
         XCTAssertNil(ocean)
     }
 
@@ -23,20 +40,37 @@ final class LociTests: XCTestCase {
         let countries = try FileManager.default.attributesOfItem(atPath: resources.appending(path: "countries.json").path)[.size] as? NSNumber
         let cities = try FileManager.default.attributesOfItem(atPath: resources.appending(path: "cities.sqlite").path)[.size] as? NSNumber
 
-        XCTAssertLessThanOrEqual(countries?.intValue ?? .max, 3 * 1_024 * 1_024)
-        XCTAssertLessThanOrEqual(cities?.intValue ?? .max, 15 * 1_024 * 1_024)
+        XCTAssertLessThanOrEqual(countries?.intValue ?? .max, 25 * 1_024 * 1_024)
+        XCTAssertLessThanOrEqual(cities?.intValue ?? .max, 35 * 1_024 * 1_024)
+    }
+
+    func testOfflineManifestContainsDetailedCountryAndCompleteCityCoverage() throws {
+        let data = try Data(contentsOf: offlineResourceDirectory().appending(path: "sources.json"))
+        let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let outputs = try XCTUnwrap(manifest["outputs"] as? [String: Any])
+        let countries = try XCTUnwrap(outputs["countries"] as? [String: Any])
+        let cities = try XCTUnwrap(outputs["cities"] as? [String: Any])
+        let administrativeCenters = try XCTUnwrap(cities["administrativeCenterCounts"] as? [String: Any])
+
+        XCTAssertGreaterThanOrEqual(countries["featureCount"] as? Int ?? 0, 250)
+        XCTAssertGreaterThanOrEqual(cities["rowCount"] as? Int ?? 0, 165_000)
+        for code in ["PPLC", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5"] {
+            XCTAssertGreaterThan(administrativeCenters[code] as? Int ?? 0, 0, "Missing \(code) coverage")
+        }
     }
 
     func testOfflineGazetteerResolvesNearestCityAndAdministrativeArea() async throws {
         let resolver = try makeOfflineGazetteer()
 
-        let tokyo = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 11)
-        let paris = try await resolver.resolve(latitude: 48.8566, longitude: 2.3522, zoom: 11)
+        let tokyo = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 7)
+        let paris = try await resolver.resolve(latitude: 48.8566, longitude: 2.3522, zoom: 7)
+        let urumqi = try await resolver.resolve(latitude: 43.80096, longitude: 87.60046, zoom: 7)
 
         XCTAssertEqual(tokyo?.city, "Tokyo")
         XCTAssertEqual(tokyo?.countryCode, "JP")
         XCTAssertEqual(paris?.city, "Paris")
         XCTAssertEqual(paris?.countryCode, "FR")
+        XCTAssertEqual(urumqi?.city, "Ürümqi")
     }
 
     func testLocationPresentationNeverRepeatsEquivalentLabels() {
@@ -49,12 +83,16 @@ final class LociTests: XCTestCase {
     }
 
     @MainActor
-    func testMapMovementAppliesOfflineCountryBeforeOnlineReverseGeocoding() async {
+    func testMapMovementKeepsCommittedTextUntilSettledThenAppliesOfflineCountry() async {
         let japan = PlaceSuggestion(name: "Japan", city: "", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 6)
         let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: japan))
         let viewport = MapViewport(camera: .init(latitude: 35.6762, longitude: 139.6503, zoom: 6), size: .init(width: 300, height: 400))
 
-        store.updateViewport(viewport)
+        store.beginViewportInteraction()
+        XCTAssertEqual(store.document.location.city, "TOKYO")
+        XCTAssertEqual(store.document.camera.zoom, 11)
+
+        store.settleViewport(viewport)
         try? await Task.sleep(for: .milliseconds(30))
 
         XCTAssertEqual(store.document.location.country, "JAPAN")
@@ -70,11 +108,54 @@ final class LociTests: XCTestCase {
 
         let oldLookup = Task { await store.viewportDidSettle(oldViewport) }
         try? await Task.sleep(for: .milliseconds(10))
-        store.updateViewport(japanViewport)
+        store.beginViewportInteraction()
+        store.settleViewport(japanViewport)
         await oldLookup.value
+        try? await Task.sleep(for: .milliseconds(30))
 
         XCTAssertEqual(store.document.location.country, "JAPAN")
         XCTAssertEqual(store.document.locationPresentation.primary, "JAPAN")
+    }
+
+    @MainActor
+    func testNominatimCannotReplaceSettledLocalCityOrCountry() async {
+        let tokyo = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 7)
+        let conflicting = PlaceSuggestion(name: "Chengdu, China", city: "Chengdu", country: "China", countryCode: "CN", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 7)
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: conflicting), offlineGeocoder: StubOfflineGeocoder(result: tokyo))
+        let viewport = MapViewport(camera: .init(latitude: 35.6762, longitude: 139.6503, zoom: 7), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(260))
+
+        XCTAssertEqual(store.document.location.city, "TOKYO")
+        XCTAssertEqual(store.document.location.country, "JAPAN")
+    }
+
+    @MainActor
+    func testNominatimWithoutCountryCodeCannotRefineSettledLocalResult() async {
+        let local = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", administrativeArea: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 12)
+        let unverified = PlaceSuggestion(name: "Unverified district", district: "Wrong District", city: "Wrong City", administrativeArea: "Wrong Area", country: "", countryCode: "", latitude: 35.6762, longitude: 139.6503, zoom: 12)
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: unverified), offlineGeocoder: StubOfflineGeocoder(result: local))
+        let viewport = MapViewport(camera: .init(latitude: 35.6762, longitude: 139.6503, zoom: 12), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(260))
+
+        XCTAssertNil(store.document.location.district)
+        XCTAssertEqual(store.document.location.administrativeArea, "TOKYO")
+        XCTAssertEqual(store.document.location.city, "TOKYO")
+        XCTAssertEqual(store.document.location.country, "JAPAN")
+    }
+
+    @MainActor
+    func testSettlingOverOceanClearsAutomaticLocationText() async {
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: nil))
+        let viewport = MapViewport(camera: .init(latitude: 0, longitude: -140, zoom: 8), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(store.document.locationPresentation, .init(primary: "", secondary: ""))
     }
 
     func testNominatimRanksAdministrativeExactMatchBeforeBusinessContainsMatch() throws {
@@ -128,18 +209,20 @@ final class LociTests: XCTestCase {
         XCTAssertEqual(results.first?.administrativeArea, "Region")
     }
 
-    func testLocationPresentationFollowsDistrictCityCountryAndEarthZoomLevels() {
+    func testLocationPresentationFollowsCountryCityAndDistrictZoomLevelsWithoutEarth() {
         var document = PosterDocument.tokyo
         document.location = .init(latitude: 35.69, longitude: 139.75, resolvedName: "Chiyoda, Tokyo, Japan", district: "CHIYODA", city: "TOKYO", administrativeArea: "TOKYO", country: "JAPAN", countryCode: "JP", continent: "ASIA")
 
-        document.camera.zoom = 13
+        document.camera.zoom = 12
         XCTAssertEqual(document.locationPresentation, .init(primary: "CHIYODA", secondary: "TOKYO"))
-        document.camera.zoom = 10
+        document.camera.zoom = 7
         XCTAssertEqual(document.locationPresentation, .init(primary: "TOKYO", secondary: "JAPAN"))
-        document.camera.zoom = 6
+        document.camera.zoom = 11.99
+        XCTAssertEqual(document.locationPresentation, .init(primary: "TOKYO", secondary: "JAPAN"))
+        document.camera.zoom = 6.99
         XCTAssertEqual(document.locationPresentation, .init(primary: "JAPAN", secondary: "ASIA"))
-        document.camera.zoom = 5.99
-        XCTAssertEqual(document.locationPresentation, .init(primary: "EARTH", secondary: ""))
+        document.camera.zoom = 0
+        XCTAssertEqual(document.locationPresentation, .init(primary: "JAPAN", secondary: "ASIA"))
     }
 
     func testLocationPresentationPreservesManualTextAtLocalZooms() {
@@ -208,6 +291,7 @@ final class LociTests: XCTestCase {
         let store = makeStore(document: document, geocoder: StubGeocoder(reverseResult: resolved))
         let viewport = MapViewport(camera: .init(latitude: 35.701, longitude: 139.701, zoom: 14), size: .init(width: 300, height: 400))
 
+        store.updateViewport(viewport)
         await store.viewportDidSettle(viewport)
 
         XCTAssertEqual(store.document.location.latitude, 35.701)
@@ -234,23 +318,6 @@ final class LociTests: XCTestCase {
     }
 
     @MainActor
-    func testOlderReverseGeocodeResponseCannotOverwriteNewerMapCenter() async {
-        let store = makeStore(document: .tokyo, geocoder: DelayedGeocoder())
-        let oldViewport = MapViewport(camera: .init(latitude: 35.0, longitude: 139.0, zoom: 11), size: .init(width: 300, height: 400))
-        let newViewport = MapViewport(camera: .init(latitude: 48.0, longitude: 2.0, zoom: 11), size: .init(width: 300, height: 400))
-
-        let oldLookup = Task { await store.viewportDidSettle(oldViewport) }
-        try? await Task.sleep(for: .milliseconds(10))
-        let newLookup = Task { await store.viewportDidSettle(newViewport) }
-        await oldLookup.value
-        await newLookup.value
-
-        XCTAssertEqual(store.document.location.city, "NEW CITY")
-        XCTAssertEqual(store.document.location.latitude, 48.0)
-        XCTAssertEqual(store.document.location.longitude, 2.0)
-    }
-
-    @MainActor
     func testZoomingIntoDistrictLevelResolvesMissingDistrictAtSameCenter() async {
         let resolved = PlaceSuggestion(name: "Shinjuku, Tokyo, Japan", district: "Shinjuku", city: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.68, longitude: 139.69, zoom: 13)
         let geocoder = RecordingGeocoder(result: resolved)
@@ -264,6 +331,30 @@ final class LociTests: XCTestCase {
         let reverseCount = await geocoder.reverseCount
         XCTAssertEqual(store.document.location.district, "SHINJUKU")
         XCTAssertEqual(reverseCount, 1)
+    }
+
+    @MainActor
+    func testDistrictRefinementReturnsAfterZoomingOutAndBackAtSameCenter() async {
+        let localTokyo = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", administrativeArea: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.68, longitude: 139.69, zoom: 12)
+        let refinedTokyo = PlaceSuggestion(name: "Shinjuku, Tokyo, Japan", district: "Shinjuku", city: "Tokyo", administrativeArea: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.68, longitude: 139.69, zoom: 12)
+        let geocoder = RecordingGeocoder(result: refinedTokyo)
+        let store = makeStore(document: .tokyo, geocoder: geocoder, offlineGeocoder: StubOfflineGeocoder(result: localTokyo))
+        let districtViewport = MapViewport(camera: .init(latitude: 35.68, longitude: 139.69, zoom: 12), size: .init(width: 300, height: 400))
+        let cityViewport = MapViewport(camera: .init(latitude: 35.68, longitude: 139.69, zoom: 11), size: .init(width: 300, height: 400))
+
+        store.settleViewport(districtViewport)
+        try? await Task.sleep(for: .milliseconds(260))
+        XCTAssertEqual(store.document.location.district, "SHINJUKU")
+
+        store.settleViewport(cityViewport)
+        try? await Task.sleep(for: .milliseconds(30))
+        XCTAssertNil(store.document.location.district)
+
+        store.settleViewport(districtViewport)
+        try? await Task.sleep(for: .milliseconds(260))
+        XCTAssertEqual(store.document.location.district, "SHINJUKU")
+        let reverseCount = await geocoder.reverseCount
+        XCTAssertEqual(reverseCount, 2)
     }
 
     @MainActor
@@ -281,12 +372,18 @@ final class LociTests: XCTestCase {
 #if canImport(MapLibre)
     @MainActor
     func testProgrammaticMapUpdateSuppressesViewportCallbacks() {
-        let parent = MapLibreMapView(document: .tokyo, onViewportChange: { _ in XCTFail("Programmatic update must not report a viewport change") }, onViewportSettled: { _ in XCTFail("Programmatic update must not settle the viewport") }, onFailure: { _ in })
+        let parent = MapLibreMapView(document: .tokyo, onViewportChange: { _ in XCTFail("Programmatic update must not report a viewport change") }, onViewportInteractionBegan: { XCTFail("Programmatic update must not begin an interaction") }, onViewportSettled: { _ in XCTFail("Programmatic update must not settle the viewport") }, onFailure: { _ in })
         let coordinator = MapLibreMapView.Coordinator(parent: parent)
-
+        let mapView = MLNMapView(frame: .init(x: 0, y: 0, width: 300, height: 400), styleURL: nil)
+        mapView.setCenter(.init(latitude: PosterDocument.tokyo.camera.latitude, longitude: PosterDocument.tokyo.camera.longitude), zoomLevel: PosterDocument.tokyo.camera.zoom, animated: false)
+        coordinator.programmaticTarget = PosterDocument.tokyo.camera
         coordinator.isApplyingDocument = true
 
-        XCTAssertFalse(coordinator.shouldReportViewportChanges)
+        coordinator.mapView(mapView, regionWillChangeAnimated: false)
+        coordinator.mapView(mapView, regionDidChangeAnimated: false)
+        coordinator.isApplyingDocument = false
+
+        XCTAssertNil(coordinator.programmaticTarget)
     }
 #endif
 

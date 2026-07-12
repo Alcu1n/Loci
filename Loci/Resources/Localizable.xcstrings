@@ -4,7 +4,7 @@
     "%@, map poster" : {
 
     },
-    "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Nominatim using OpenStreetMap data." : {
+    "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Search uses Nominatim. Offline country and city lookup uses Natural Earth and GeoNames data (CC BY 4.0), transformed and indexed by Loci." : {
 
     },
     "Attribution" : {

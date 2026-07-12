@@ -60,7 +60,7 @@ actor OfflineGazetteer: OfflineGeocodingClient {
         guard let country = country(at: latitude, longitude: longitude) else { return nil }
 
         var city: CityResult?
-        if zoom >= 10 {
+        if zoom >= 7 {
             try openDatabaseIfNeeded()
             city = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: zoom)
         }
@@ -101,19 +101,21 @@ actor OfflineGazetteer: OfflineGeocodingClient {
     }
 
     private func contains(latitude: Double, longitude: Double, ring: [[Double]]) -> Bool {
-        guard ring.count >= 3 else { return false }
+        guard ring.count >= 3, ring[0].count == 2 else { return false }
         var inside = false
         var previous = ring[ring.count - 1]
+        var previousLongitude = longitudeNear(previous[0], reference: ring[0][0])
+        let testLongitude = longitudeNear(longitude, reference: ring[0][0])
         for current in ring {
             guard current.count == 2, previous.count == 2 else { previous = current; continue }
-            let currentLongitude = longitudeNear(current[0], reference: longitude)
-            let previousLongitude = longitudeNear(previous[0], reference: longitude)
+            let currentLongitude = longitudeNear(current[0], reference: previousLongitude)
             let crosses = (current[1] > latitude) != (previous[1] > latitude)
             if crosses {
                 let intersection = (previousLongitude - currentLongitude) * (latitude - current[1]) / (previous[1] - current[1]) + currentLongitude
-                if longitude < intersection { inside.toggle() }
+                if testLongitude < intersection { inside.toggle() }
             }
             previous = current
+            previousLongitude = currentLongitude
         }
         return inside
     }
@@ -145,12 +147,12 @@ actor OfflineGazetteer: OfflineGeocodingClient {
 
     private func nearestCity(latitude: Double, longitude: Double, countryCode: String, zoom: Double) throws -> CityResult? {
         guard let database else { return nil }
-        let searchRadius = zoom >= 13 ? 1.0 : 3.0
+        let searchRadius = zoom >= 12 ? 1.0 : 3.0
         let longitudeRadius = min(12, searchRadius / max(0.2, cos(latitude * .pi / 180)))
         let longitudeRanges = wrappedLongitudeRanges(center: longitude, radius: longitudeRadius)
         let firstRange = longitudeRanges[0]
         let secondRange = longitudeRanges.count == 2 ? longitudeRanges[1] : (181.0...181.0)
-        let orderExpression = zoom >= 13
+        let orderExpression = zoom >= 12
             ? "((c.latitude - ?8) * (c.latitude - ?8)) + ((MIN(ABS(c.longitude - ?9), 360 - ABS(c.longitude - ?9)) * ?10) * (MIN(ABS(c.longitude - ?9), 360 - ABS(c.longitude - ?9)) * ?10))"
             : "(((c.latitude - ?8) * (c.latitude - ?8)) + ((MIN(ABS(c.longitude - ?9), 360 - ABS(c.longitude - ?9)) * ?10) * (MIN(ABS(c.longitude - ?9), 360 - ABS(c.longitude - ?9)) * ?10))) / MAX(c.population, 5000)"
         let sql = """
@@ -183,7 +185,7 @@ actor OfflineGazetteer: OfflineGeocodingClient {
             administrativeArea: String(cString: sqlite3_column_text(statement, 2)),
             latitude: sqlite3_column_double(statement, 3), longitude: sqlite3_column_double(statement, 4)
         )
-        let maximumDistance = zoom >= 13 ? 60_000.0 : 250_000.0
+        let maximumDistance = zoom >= 12 ? 60_000.0 : 250_000.0
         return distanceMeters(latitude, longitude, result.latitude, result.longitude) <= maximumDistance ? result : nil
     }
 

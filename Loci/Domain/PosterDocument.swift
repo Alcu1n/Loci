@@ -104,19 +104,16 @@ struct PosterTheme: Identifiable, Equatable, Sendable {
 
 extension PosterDocument {
     var locationPresentation: LocationPresentation {
-        let city = location.city?.nonEmpty ?? location.administrativeArea?.nonEmpty ?? title.nonEmpty ?? "LOCATION"
         let country = location.country?.nonEmpty ?? ""
+        let city = location.city?.nonEmpty ?? location.administrativeArea?.nonEmpty ?? country
         let validContinents = ["AFRICA", "ASIA", "EUROPE", "NORTH AMERICA", "SOUTH AMERICA", "OCEANIA", "ANTARCTICA"]
         let continent = location.continent?.nonEmpty.flatMap { validContinents.contains($0.uppercased()) ? $0 : nil } ?? ""
 
-        if camera.zoom < 6 {
-            return .init(primary: "EARTH", secondary: "")
-        }
-        if camera.zoom < 10 {
-            guard let primary = country.nonEmpty else { return .init(primary: "EARTH", secondary: "") }
+        if camera.zoom < 7 {
+            guard let primary = country.nonEmpty else { return .init(primary: "", secondary: "") }
             return .init(primary: primary, secondary: distinctSecondary(continent, primary: primary))
         }
-        if camera.zoom < 13 || typography.cityIsUserEdited {
+        if camera.zoom < 12 || typography.cityIsUserEdited {
             return .init(primary: city, secondary: distinctSecondary(country, primary: city))
         }
 

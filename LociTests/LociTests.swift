@@ -73,7 +73,7 @@ final class LociTests: XCTestCase {
         XCTAssertEqual(paris?.countryCode, "FR")
         XCTAssertEqual(urumqi?.city, "Ürümqi")
         XCTAssertEqual(tokyoDistrict?.city, "Tokyo")
-        XCTAssertFalse(tokyoDistrict?.district.isEmpty ?? true)
+        XCTAssertEqual(tokyoDistrict?.district, "")
     }
 
     func testLocationPresentationNeverRepeatsEquivalentLabels() {

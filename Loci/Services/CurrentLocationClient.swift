@@ -75,7 +75,7 @@ final class CoreLocationClient: NSObject, CurrentLocationClient, @preconcurrency
     private func reverseGeocode(_ location: CLLocation) async -> PlaceSuggestion {
         let fallback = PlaceSuggestion(name: "Current location", city: "CURRENT LOCATION", country: "", latitude: location.coordinate.latitude, longitude: location.coordinate.longitude, zoom: 13)
         do {
-            let placemark = try await CLGeocoder().reverseGeocodeLocation(location).first
+            let placemark = try await CLGeocoder().reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "en_US")).first
             let city = placemark?.locality ?? placemark?.subLocality ?? "CURRENT LOCATION"
             let country = placemark?.country ?? placemark?.administrativeArea ?? ""
             let name = [city, country].filter { !$0.isEmpty }.joined(separator: ", ")

@@ -106,20 +106,28 @@ extension PosterDocument {
     var locationPresentation: LocationPresentation {
         let city = location.city?.nonEmpty ?? location.administrativeArea?.nonEmpty ?? title.nonEmpty ?? "LOCATION"
         let country = location.country?.nonEmpty ?? ""
+        let validContinents = ["AFRICA", "ASIA", "EUROPE", "NORTH AMERICA", "SOUTH AMERICA", "OCEANIA", "ANTARCTICA"]
+        let continent = location.continent?.nonEmpty.flatMap { validContinents.contains($0.uppercased()) ? $0 : nil } ?? ""
 
         if camera.zoom < 6 {
             return .init(primary: "EARTH", secondary: "")
         }
         if camera.zoom < 10 {
-            return .init(primary: country.nonEmpty ?? city, secondary: location.continent?.nonEmpty ?? "")
+            guard let primary = country.nonEmpty else { return .init(primary: "EARTH", secondary: "") }
+            return .init(primary: primary, secondary: distinctSecondary(continent, primary: primary))
         }
         if camera.zoom < 13 || typography.cityIsUserEdited {
-            return .init(primary: city, secondary: country)
+            return .init(primary: city, secondary: distinctSecondary(country, primary: city))
         }
 
         let district = location.district?.nonEmpty ?? city
-        let secondary = district.caseInsensitiveCompare(city) == .orderedSame ? country : city
+        let secondary = district.caseInsensitiveCompare(city) == .orderedSame ? distinctSecondary(country, primary: district) : distinctSecondary(city, primary: district)
         return .init(primary: district, secondary: secondary)
+    }
+
+    private func distinctSecondary(_ secondary: String, primary: String) -> String {
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]
+        return secondary.compare(primary, options: options) == .orderedSame ? "" : secondary
     }
 
     mutating func normalize() {

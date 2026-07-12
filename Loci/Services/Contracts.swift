@@ -6,6 +6,14 @@ protocol GeocodingClient: Sendable {
     func search(query: String) async throws -> [PlaceSuggestion]
     func reverseGeocode(latitude: Double, longitude: Double) async throws -> PlaceSuggestion
 }
+protocol OfflineGeocodingClient: Sendable {
+    func preload() async throws
+    func resolve(latitude: Double, longitude: Double, zoom: Double) async throws -> PlaceSuggestion?
+}
+struct EmptyOfflineGeocodingClient: OfflineGeocodingClient {
+    func preload() async throws {}
+    func resolve(latitude: Double, longitude: Double, zoom: Double) async throws -> PlaceSuggestion? { nil }
+}
 protocol CurrentLocationClient: Sendable { func locate() async throws -> PlaceSuggestion }
 protocol DraftRepository: Sendable { func load() throws -> PosterDocument?; func save(_ document: PosterDocument) throws }
 protocol PosterCompositor: Sendable { func render(map: UIImage, document: PosterDocument, output: CGSize) throws -> UIImage }

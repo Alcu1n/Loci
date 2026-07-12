@@ -97,11 +97,16 @@ actor NominatimGeocodingClient: GeocodingClient {
 
     private func fetch(_ url: URL) async throws -> Data {
         let clock = ContinuousClock()
-        let now = clock.now
-        let scheduled = lastRequest.map { max($0.advanced(by: minimumRequestInterval), now) } ?? now
-        lastRequest = scheduled
-        if now < scheduled { try await clock.sleep(until: scheduled) }
-        try Task.checkCancellation()
+        while true {
+            try Task.checkCancellation()
+            let now = clock.now
+            if let lastRequest {
+                let nextAllowed = lastRequest.advanced(by: minimumRequestInterval)
+                if now < nextAllowed { try await clock.sleep(until: nextAllowed); continue }
+            }
+            lastRequest = now
+            break
+        }
         var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 16)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("en", forHTTPHeaderField: "Accept-Language")

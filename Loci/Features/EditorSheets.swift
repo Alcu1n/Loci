@@ -253,7 +253,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Attribution") { Text("© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Nominatim using OpenStreetMap data.") }
+                Section("Attribution") { Text("© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Search uses Nominatim. Offline country and city lookup uses Natural Earth and GeoNames data (CC BY 4.0), filtered and indexed by Loci.") }
                 Section("Privacy") { Text("Loci stores the latest poster on this device. It does not use accounts, analytics, advertising, or background location.") }
             }
             .navigationTitle("Loci")

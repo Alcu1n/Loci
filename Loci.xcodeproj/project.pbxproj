@@ -22,6 +22,11 @@
 		A00000000000000000000013 /* CurrentLocationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* CurrentLocationClient.swift */; };
 		A00000000000000000000014 /* loci-map-style.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* loci-map-style.json */; };
 		A00000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* Assets.xcassets */; };
+		A00000000000000000000016 /* OfflineGazetteer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* OfflineGazetteer.swift */; };
+		A00000000000000000000017 /* countries.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* countries.json */; };
+		A00000000000000000000018 /* cities.sqlite in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* cities.sqlite */; };
+		A00000000000000000000019 /* sources.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* sources.json */; };
+		A00000000000000000000020 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +56,11 @@
 		A10000000000000000000014 /* CurrentLocationClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentLocationClient.swift; sourceTree = "<group>"; };
 		A10000000000000000000015 /* loci-map-style.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loci-map-style.json"; sourceTree = "<group>"; };
 		A10000000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000000000000000000017 /* OfflineGazetteer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineGazetteer.swift; sourceTree = "<group>"; };
+		A10000000000000000000018 /* countries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/countries.json; sourceTree = "<group>"; };
+		A10000000000000000000019 /* cities.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = OfflineGeodata/cities.sqlite; sourceTree = "<group>"; };
+		A10000000000000000000020 /* sources.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/sources.json; sourceTree = "<group>"; };
+		A10000000000000000000021 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.text-based-dylib-definition; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +69,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000011 /* MapLibre in Frameworks */,
+				A00000000000000000000020 /* libsqlite3.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,6 +128,7 @@
 				A10000000000000000000005 /* MapLibreAdapter.swift */,
 				A10000000000000000000013 /* MapServiceConfiguration.swift */,
 				A10000000000000000000014 /* CurrentLocationClient.swift */,
+				A10000000000000000000017 /* OfflineGazetteer.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -152,6 +164,9 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000016 /* Assets.xcassets */,
+				A10000000000000000000018 /* countries.json */,
+				A10000000000000000000019 /* cities.sqlite */,
+				A10000000000000000000020 /* sources.json */,
 				A10000000000000000000009 /* Localizable.xcstrings */,
 				A10000000000000000000015 /* loci-map-style.json */,
 			);
@@ -245,6 +260,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000015 /* Assets.xcassets in Resources */,
+				A00000000000000000000017 /* countries.json in Resources */,
+				A00000000000000000000018 /* cities.sqlite in Resources */,
+				A00000000000000000000019 /* sources.json in Resources */,
 				A00000000000000000000009 /* Localizable.xcstrings in Resources */,
 				A00000000000000000000014 /* loci-map-style.json in Resources */,
 			);
@@ -267,6 +285,7 @@
 				A00000000000000000000008 /* EditorSheets.swift in Sources */,
 				A00000000000000000000012 /* MapServiceConfiguration.swift in Sources */,
 				A00000000000000000000013 /* CurrentLocationClient.swift in Sources */,
+				A00000000000000000000016 /* OfflineGazetteer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

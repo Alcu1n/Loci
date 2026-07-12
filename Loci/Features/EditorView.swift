@@ -125,9 +125,11 @@ struct PosterArtwork: View {
         return VStack(spacing: 6) {
             if document.typography.cityVisible {
                 Text(locationText.primary).font(.system(size: max(28, width * 0.105), weight: .bold, design: .monospaced)).tracking(width * 0.006).lineLimit(1).minimumScaleFactor(0.45)
+                    .contentTransition(.opacity).animation(.easeOut(duration: 0.15), value: locationText.primary)
             }
             if document.typography.countryVisible {
                 Text(locationText.secondary).font(.system(size: max(10, width * 0.030), weight: .medium, design: .monospaced)).tracking(width * 0.004).foregroundStyle(Color(hex: theme.ink).opacity(0.72))
+                    .contentTransition(.opacity).animation(.easeOut(duration: 0.15), value: locationText.secondary)
             }
             LinearGradient(colors: [.clear, Color(hex: theme.ink).opacity(0.55), Color(hex: theme.ink).opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
                 .frame(width: width * PosterTypographyLayout.separatorWidthFraction, height: 1).padding(.vertical, 4)

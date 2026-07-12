@@ -2,6 +2,81 @@ import XCTest
 @testable import Loci
 
 final class LociTests: XCTestCase {
+    func testOfflineGazetteerResolvesCountriesImmediatelyAcrossContinents() async throws {
+        let resolver = try makeOfflineGazetteer()
+
+        let china = try await resolver.resolve(latitude: 30.5728, longitude: 104.0668, zoom: 6)
+        let japan = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 6)
+        let unitedStates = try await resolver.resolve(latitude: 40.7128, longitude: -74.0060, zoom: 6)
+        let ocean = try await resolver.resolve(latitude: 0, longitude: -140, zoom: 6)
+
+        XCTAssertEqual(china?.countryCode, "CN")
+        XCTAssertEqual(china?.country, "China")
+        XCTAssertEqual(japan?.countryCode, "JP")
+        XCTAssertEqual(japan?.country, "Japan")
+        XCTAssertEqual(unitedStates?.countryCode, "US")
+        XCTAssertNil(ocean)
+    }
+
+    func testOfflineResourcesStayWithinAppSizeBudget() throws {
+        let resources = offlineResourceDirectory()
+        let countries = try FileManager.default.attributesOfItem(atPath: resources.appending(path: "countries.json").path)[.size] as? NSNumber
+        let cities = try FileManager.default.attributesOfItem(atPath: resources.appending(path: "cities.sqlite").path)[.size] as? NSNumber
+
+        XCTAssertLessThanOrEqual(countries?.intValue ?? .max, 3 * 1_024 * 1_024)
+        XCTAssertLessThanOrEqual(cities?.intValue ?? .max, 15 * 1_024 * 1_024)
+    }
+
+    func testOfflineGazetteerResolvesNearestCityAndAdministrativeArea() async throws {
+        let resolver = try makeOfflineGazetteer()
+
+        let tokyo = try await resolver.resolve(latitude: 35.6762, longitude: 139.6503, zoom: 11)
+        let paris = try await resolver.resolve(latitude: 48.8566, longitude: 2.3522, zoom: 11)
+
+        XCTAssertEqual(tokyo?.city, "Tokyo")
+        XCTAssertEqual(tokyo?.countryCode, "JP")
+        XCTAssertEqual(paris?.city, "Paris")
+        XCTAssertEqual(paris?.countryCode, "FR")
+    }
+
+    func testLocationPresentationNeverRepeatsEquivalentLabels() {
+        var document = PosterDocument.tokyo
+        document.location.country = "CHINA"
+        document.location.continent = "China"
+        document.camera.zoom = 6
+
+        XCTAssertEqual(document.locationPresentation, .init(primary: "CHINA", secondary: ""))
+    }
+
+    @MainActor
+    func testMapMovementAppliesOfflineCountryBeforeOnlineReverseGeocoding() async {
+        let japan = PlaceSuggestion(name: "Japan", city: "", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 6)
+        let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: japan))
+        let viewport = MapViewport(camera: .init(latitude: 35.6762, longitude: 139.6503, zoom: 6), size: .init(width: 300, height: 400))
+
+        store.updateViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(store.document.location.country, "JAPAN")
+        XCTAssertEqual(store.document.locationPresentation, .init(primary: "JAPAN", secondary: "ASIA"))
+    }
+
+    @MainActor
+    func testMapMovementPreventsLateOnlineResultFromOverwritingOfflineLabel() async {
+        let japan = PlaceSuggestion(name: "Japan", city: "", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.6762, longitude: 139.6503, zoom: 6)
+        let store = makeStore(document: .tokyo, geocoder: DelayedGeocoder(), offlineGeocoder: StubOfflineGeocoder(result: japan))
+        let oldViewport = MapViewport(camera: .init(latitude: 35, longitude: 139, zoom: 11), size: .init(width: 300, height: 400))
+        let japanViewport = MapViewport(camera: .init(latitude: 35.6762, longitude: 139.6503, zoom: 6), size: .init(width: 300, height: 400))
+
+        let oldLookup = Task { await store.viewportDidSettle(oldViewport) }
+        try? await Task.sleep(for: .milliseconds(10))
+        store.updateViewport(japanViewport)
+        await oldLookup.value
+
+        XCTAssertEqual(store.document.location.country, "JAPAN")
+        XCTAssertEqual(store.document.locationPresentation.primary, "JAPAN")
+    }
+
     func testNominatimRanksAdministrativeExactMatchBeforeBusinessContainsMatch() throws {
         let payload = Data("""
         [
@@ -329,8 +404,17 @@ final class LociTests: XCTestCase {
     }
 
     @MainActor
-    private func makeStore(document: PosterDocument, geocoder: any GeocodingClient) -> PosterEditorStore {
-        PosterEditorStore(document: document, drafts: StubDraftRepository(), geocoder: geocoder, exporter: StubExportService(), currentLocation: StubCurrentLocationClient(), photoLibrary: StubPhotoLibrarySaver())
+    private func makeStore(document: PosterDocument, geocoder: any GeocodingClient, offlineGeocoder: any OfflineGeocodingClient = EmptyOfflineGeocodingClient()) -> PosterEditorStore {
+        PosterEditorStore(document: document, drafts: StubDraftRepository(), geocoder: geocoder, offlineGeocoder: offlineGeocoder, exporter: StubExportService(), currentLocation: StubCurrentLocationClient(), photoLibrary: StubPhotoLibrarySaver())
+    }
+
+    private func makeOfflineGazetteer() throws -> OfflineGazetteer {
+        let resources = offlineResourceDirectory()
+        return try OfflineGazetteer(countryURL: resources.appending(path: "countries.json"), cityDatabaseURL: resources.appending(path: "cities.sqlite"))
+    }
+
+    private func offlineResourceDirectory() -> URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "Loci/Resources/OfflineGeodata")
     }
 }
 
@@ -386,6 +470,12 @@ private actor RecordingGeocoder: GeocodingClient {
     init(result: PlaceSuggestion) { self.result = result }
     func search(query: String) async throws -> [PlaceSuggestion] { [] }
     func reverseGeocode(latitude: Double, longitude: Double) async throws -> PlaceSuggestion { reverseCount += 1; return result }
+}
+
+private struct StubOfflineGeocoder: OfflineGeocodingClient {
+    let result: PlaceSuggestion?
+    func preload() async throws {}
+    func resolve(latitude: Double, longitude: Double, zoom: Double) async throws -> PlaceSuggestion? { result }
 }
 
 private struct StubDraftRepository: DraftRepository {

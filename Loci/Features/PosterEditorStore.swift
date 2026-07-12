@@ -7,6 +7,7 @@ import Observation
     var activeSheet: Sheet?
     var searchQuery = ""
     var suggestions: [PlaceSuggestion] = []
+    var isSearching = false
     var errorMessage: String?
     var isExporting = false
     var isLocating = false
@@ -18,27 +19,142 @@ import Observation
     private let exporter: any ExportService
     private let currentLocation: any CurrentLocationClient
     private let photoLibrary: any PhotoLibrarySaver
+    private var searchGeneration = 0
+    private var viewportLookupGeneration = 0
+    private var lastReverseCoordinate: (latitude: Double, longitude: Double)?
+    private var lastDistrictLookupCoordinate: (latitude: Double, longitude: Double)?
+    private var searchTask: Task<Void, Never>?
+    private var viewportTask: Task<Void, Never>?
 
     init(document: PosterDocument, drafts: any DraftRepository, geocoder: any GeocodingClient, exporter: any ExportService, currentLocation: any CurrentLocationClient, photoLibrary: any PhotoLibrarySaver) { self.document = document; self.drafts = drafts; self.geocoder = geocoder; self.exporter = exporter; self.currentLocation = currentLocation; self.photoLibrary = photoLibrary }
 
     static func live() -> PosterEditorStore {
         let drafts = UserDefaultsDraftRepository(); let renderer = MapLibreRenderer(); let compositor = CoreGraphicsCompositor()
         let document = (try? drafts.load()) ?? .tokyo
-        return PosterEditorStore(document: document, drafts: drafts, geocoder: ApplePlaceSearchClient(), exporter: LocalExportService(renderer: renderer, compositor: compositor), currentLocation: CoreLocationClient(), photoLibrary: SystemPhotoLibrarySaver())
+        return PosterEditorStore(document: document, drafts: drafts, geocoder: NominatimGeocodingClient(), exporter: LocalExportService(renderer: renderer, compositor: compositor), currentLocation: CoreLocationClient(), photoLibrary: SystemPhotoLibrarySaver())
     }
 
     func save() { document.updatedAt = .now; do { try drafts.save(document) } catch { errorMessage = error.localizedDescription } }
-    func newPoster() { document = .tokyo; previewViewport = nil; save() }
+    func newPoster() { document = .tokyo; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
     func selectTheme(_ theme: PosterTheme) { document.themeID = theme.id; save() }
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
     func updateCity(_ city: String) { document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save() }
     func updateCountry(_ country: String) { document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save() }
-    func select(_ suggestion: PlaceSuggestion) { document.location = .init(latitude: suggestion.latitude, longitude: suggestion.longitude, resolvedName: suggestion.name, city: suggestion.city.uppercased(), country: suggestion.country.uppercased()); document.camera = .init(latitude: suggestion.latitude, longitude: suggestion.longitude, zoom: suggestion.zoom); previewViewport = nil; if !document.typography.cityIsUserEdited { document.title = suggestion.city.uppercased() }; save(); activeSheet = nil }
-    func updateViewport(_ viewport: MapViewport) { guard viewport.isValid else { return }; previewViewport = viewport; guard document.camera != viewport.camera else { return }; document.camera = viewport.camera; save() }
-    func applyCoordinates(latitude: String, longitude: String) { guard let latitude = Double(latitude), let longitude = Double(longitude), (-90...90).contains(latitude), (-180...180).contains(longitude) else { errorMessage = LociError.invalidCoordinates.localizedDescription; return }; document.location.latitude = latitude; document.location.longitude = longitude; document.camera.latitude = latitude; document.camera.longitude = longitude; previewViewport = nil; save(); activeSheet = nil }
-    func search() async { guard searchQuery.count >= 2 else { suggestions = []; return }; do { suggestions = try await geocoder.search(query: searchQuery); if suggestions.isEmpty { errorMessage = LociError.noResults.localizedDescription } } catch { errorMessage = error.localizedDescription } }
+    func select(_ suggestion: PlaceSuggestion) {
+        document.typography.cityIsUserEdited = false
+        document.typography.countryIsUserEdited = false
+        applyResolvedLocation(suggestion)
+        document.camera = .init(latitude: suggestion.latitude, longitude: suggestion.longitude, zoom: suggestion.zoom)
+        previewViewport = nil
+        lastReverseCoordinate = (suggestion.latitude, suggestion.longitude)
+        lastDistrictLookupCoordinate = suggestion.district.isEmpty ? nil : (suggestion.latitude, suggestion.longitude)
+        save()
+        activeSheet = nil
+    }
+    func updateViewport(_ viewport: MapViewport) { guard viewport.isValid else { return }; previewViewport = viewport; guard document.camera != viewport.camera else { return }; document.camera = viewport.camera }
+    func applyCoordinates(latitude: String, longitude: String) {
+        guard let latitude = Double(latitude), let longitude = Double(longitude), (-90...90).contains(latitude), (-180...180).contains(longitude) else { errorMessage = LociError.invalidCoordinates.localizedDescription; return }
+        let viewportSize = previewViewport?.size ?? .init(width: 2, height: 2)
+        document.location.latitude = latitude
+        document.location.longitude = longitude
+        document.camera.latitude = latitude
+        document.camera.longitude = longitude
+        previewViewport = nil
+        lastReverseCoordinate = nil
+        lastDistrictLookupCoordinate = nil
+        settleViewport(.init(camera: document.camera, size: viewportSize))
+        activeSheet = nil
+    }
+    func startSearch() {
+        searchTask?.cancel()
+        searchTask = Task { await search() }
+    }
+
+    func search() async {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else { suggestions = []; return }
+        searchGeneration += 1
+        let generation = searchGeneration
+        isSearching = true
+        defer { if generation == searchGeneration { isSearching = false } }
+        do {
+            let results = try await geocoder.search(query: query)
+            guard generation == searchGeneration, query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+            suggestions = results
+            if results.isEmpty { errorMessage = LociError.noResults.localizedDescription }
+        } catch is CancellationError {
+        } catch {
+            guard generation == searchGeneration else { return }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func settleViewport(_ viewport: MapViewport) {
+        guard viewport.isValid else { return }
+        save()
+        let needsDistrictLookup = viewport.camera.zoom >= 13 && document.location.district == nil && !document.typography.cityIsUserEdited && !isNearLastDistrictLookup(viewport.camera)
+        if let previous = lastReverseCoordinate,
+           abs(previous.latitude - viewport.camera.latitude) < 0.002,
+           abs(previous.longitude - viewport.camera.longitude) < 0.002,
+           !needsDistrictLookup { return }
+        viewportTask?.cancel()
+        viewportTask = Task { await viewportDidSettle(viewport) }
+    }
+
+    func viewportDidSettle(_ viewport: MapViewport) async {
+        guard viewport.isValid else { return }
+        let coordinate = (viewport.camera.latitude, viewport.camera.longitude)
+        let needsDistrictLookup = viewport.camera.zoom >= 13 && document.location.district == nil && !document.typography.cityIsUserEdited && !isNearLastDistrictLookup(viewport.camera)
+        if let previous = lastReverseCoordinate,
+           abs(previous.latitude - coordinate.0) < 0.002,
+           abs(previous.longitude - coordinate.1) < 0.002,
+           !needsDistrictLookup { return }
+        viewportLookupGeneration += 1
+        let generation = viewportLookupGeneration
+        lastReverseCoordinate = (coordinate.0, coordinate.1)
+        if needsDistrictLookup { lastDistrictLookupCoordinate = (coordinate.0, coordinate.1) }
+        do {
+            let resolved = try await geocoder.reverseGeocode(latitude: coordinate.0, longitude: coordinate.1)
+            guard generation == viewportLookupGeneration else { return }
+            document.location.latitude = coordinate.0
+            document.location.longitude = coordinate.1
+            applyResolvedLocation(resolved, updateCoordinates: false)
+            lastDistrictLookupCoordinate = (coordinate.0, coordinate.1)
+            save()
+        } catch is CancellationError {
+        } catch {
+            if generation == viewportLookupGeneration { lastReverseCoordinate = nil; if needsDistrictLookup { lastDistrictLookupCoordinate = nil } }
+        }
+    }
+
+    private func isNearLastDistrictLookup(_ camera: PosterCamera) -> Bool {
+        guard let previous = lastDistrictLookupCoordinate else { return false }
+        return abs(previous.latitude - camera.latitude) < 0.002 && abs(previous.longitude - camera.longitude) < 0.002
+    }
+
+    private func applyResolvedLocation(_ suggestion: PlaceSuggestion, updateCoordinates: Bool = true) {
+        if updateCoordinates {
+            document.location.latitude = suggestion.latitude
+            document.location.longitude = suggestion.longitude
+        }
+        document.location.resolvedName = suggestion.name
+        document.location.district = suggestion.district.uppercased().nilIfEmpty
+        document.location.administrativeArea = suggestion.administrativeArea.uppercased().nilIfEmpty
+        document.location.countryCode = suggestion.countryCode.uppercased().nilIfEmpty
+        document.location.continent = suggestion.continent.uppercased().nilIfEmpty
+        if !document.typography.cityIsUserEdited {
+            let city = suggestion.city.uppercased().nilIfEmpty ?? suggestion.administrativeArea.uppercased().nilIfEmpty ?? suggestion.district.uppercased().nilIfEmpty
+            document.location.city = city
+            document.title = city ?? document.title
+        }
+        if !document.typography.countryIsUserEdited {
+            document.location.country = suggestion.country.uppercased().nilIfEmpty
+        }
+    }
     func useCurrentLocation() async { guard !isLocating else { return }; isLocating = true; defer { isLocating = false }; do { select(try await currentLocation.locate()) } catch { errorMessage = error.localizedDescription } }
     func export() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { exportedURL = try await exporter.export(document: document, viewport: previewViewport) } catch { errorMessage = error.localizedDescription } }
     func exportToPhotos() async { guard let previewViewport else { errorMessage = LociError.previewUnavailable.localizedDescription; return }; isExporting = true; defer { isExporting = false }; do { let url = try await exporter.export(document: document, viewport: previewViewport); exportedURL = url; try await photoLibrary.saveImage(at: url); confirmationMessage = "Poster saved to Photos." } catch { errorMessage = error.localizedDescription } }
 }
+
+private extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }

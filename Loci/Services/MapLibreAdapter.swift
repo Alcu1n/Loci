@@ -7,6 +7,7 @@ import MapLibre
 struct MapLibreMapView: UIViewRepresentable {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -37,6 +38,7 @@ struct MapLibreMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MLNMapViewDelegate {
         var parent: MapLibreMapView
         var isApplyingDocument = false
+        var shouldReportViewportChanges: Bool { !isApplyingDocument }
 
         init(parent: MapLibreMapView) { self.parent = parent }
 
@@ -46,20 +48,32 @@ struct MapLibreMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MLNMapView, regionDidChangeAnimated animated: Bool) {
-            guard !isApplyingDocument else { return }
-            reportViewport(mapView)
+            guard shouldReportViewportChanges else { return }
+            if let viewport = viewport(mapView) {
+                parent.onViewportChange(viewport)
+                parent.onViewportSettled(viewport)
+            }
+        }
+
+        func mapViewRegionIsChanging(_ mapView: MLNMapView) {
+            guard shouldReportViewportChanges, let viewport = viewport(mapView) else { return }
+            parent.onViewportChange(viewport)
         }
 
         private func reportViewport(_ mapView: MLNMapView) {
+            if let viewport = viewport(mapView) { parent.onViewportChange(viewport) }
+        }
+
+        private func viewport(_ mapView: MLNMapView) -> MapViewport? {
             let size = mapView.bounds.size
             guard size.width > 1, size.height > 1 else {
                 DispatchQueue.main.async { [weak self, weak mapView] in
                     guard let self, let mapView else { return }
                     self.reportViewport(mapView)
                 }
-                return
+                return nil
             }
-            parent.onViewportChange(.init(camera: .init(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude, zoom: mapView.zoomLevel, bearing: mapView.direction.normalizedBearing), size: size))
+            return .init(camera: .init(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude, zoom: mapView.zoomLevel, bearing: mapView.direction.normalizedBearing), size: size)
         }
 
         func mapViewDidFailLoadingMap(_ mapView: MLNMapView, withError error: Error) {

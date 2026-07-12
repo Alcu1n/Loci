@@ -4,7 +4,7 @@
     "%@, map poster" : {
 
     },
-    "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Apple MapKit." : {
+    "© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Nominatim using OpenStreetMap data." : {
 
     },
     "Attribution" : {

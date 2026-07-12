@@ -12,7 +12,13 @@ struct LocationSheet: View {
                     SectionLabel(title: "SEARCH")
                     MinimalTextField(title: "PLACE", placeholder: "City, landmark, or address", text: $store.searchQuery, capitalization: .words)
                         .submitLabel(.search)
-                        .onSubmit { Task { await store.search() } }
+                        .onSubmit {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            store.startSearch()
+                        }
+                    if store.isSearching {
+                        HStack(spacing: 10) { ProgressView().tint(.white); Text("SEARCHING…").font(.system(size: 10, design: .monospaced)).foregroundStyle(.gray) }
+                    }
                     ForEach(store.suggestions) { item in
                         Button { store.select(item) } label: {
                             HStack(spacing: 12) {
@@ -26,7 +32,7 @@ struct LocationSheet: View {
                             .padding(.vertical, 13)
                             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1) }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.mediumHaptic)
                     }
 
                     SectionLabel(title: "COORDINATES")
@@ -46,7 +52,7 @@ struct LocationSheet: View {
                         }
                         .foregroundStyle(.white).padding(.horizontal, 16).frame(maxWidth: .infinity).frame(height: 52).overlay { Rectangle().stroke(Color.white.opacity(0.28), lineWidth: 1) }
                     }
-                    .buttonStyle(.plain).disabled(store.isLocating)
+                    .buttonStyle(.mediumHaptic).disabled(store.isLocating)
                 }
                 .padding(20)
             }
@@ -55,6 +61,7 @@ struct LocationSheet: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
         .preferredColorScheme(.dark)
+        .buttonStyle(.mediumHaptic)
     }
 }
 
@@ -66,15 +73,15 @@ struct StyleSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("POSTER THEMES").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 1) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 1), GridItem(.flexible(), spacing: 1)], spacing: 1) {
                         ForEach(PosterTheme.all) { theme in
                             Button { store.selectTheme(theme) } label: {
                                 Rectangle().fill(Color(hex: theme.background))
-                                    .overlay(alignment: .bottomLeading) { Text(theme.id.uppercased()).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(hex: theme.ink)).padding(10) }
+                                    .overlay(alignment: .bottomLeading) { Text(theme.name.uppercased()).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(hex: theme.ink)).padding(10) }
                                     .overlay { if theme.id == store.document.themeID { Rectangle().stroke(.white, lineWidth: 2) } }
                                     .aspectRatio(1.5, contentMode: .fit)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.mediumHaptic)
                         }
                     }
                     Text("LAYERS").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
@@ -90,6 +97,7 @@ struct StyleSheet: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
         .preferredColorScheme(.dark)
+        .buttonStyle(.mediumHaptic)
     }
 }
 
@@ -108,7 +116,7 @@ private struct LayerToggle: View {
             .padding(.vertical, 14)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mediumHaptic)
         .accessibilityValue(isOn ? "On" : "Off")
     }
 }
@@ -147,7 +155,7 @@ struct TextSizeSheet: View {
                                     .background(layout == store.document.layout ? Color.white : Color.black)
                                     .overlay { Rectangle().stroke(Color.white.opacity(layout == store.document.layout ? 1 : 0.22), lineWidth: 1) }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.mediumHaptic)
                         }
                     }
                 }
@@ -158,6 +166,7 @@ struct TextSizeSheet: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
         .preferredColorScheme(.dark)
+        .buttonStyle(.mediumHaptic)
     }
 }
 
@@ -194,7 +203,7 @@ private struct MinimalActionButton: View {
             HStack { Image(systemName: icon); Text(title).font(.system(size: 12, design: .monospaced).weight(.medium)); Spacer(); Image(systemName: "arrow.right") }
                 .foregroundStyle(.white).padding(.horizontal, 16).frame(maxWidth: .infinity).frame(height: 52).overlay { Rectangle().stroke(Color.white.opacity(0.28), lineWidth: 1) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mediumHaptic)
     }
 }
 
@@ -215,7 +224,7 @@ private struct EditorToggleRow: View {
             .padding(.vertical, 14)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1) }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mediumHaptic)
         .accessibilityValue(isOn ? "On" : "Off")
     }
 }
@@ -244,7 +253,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Attribution") { Text("© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Apple MapKit.") }
+                Section("Attribution") { Text("© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap. Place search is provided by Nominatim using OpenStreetMap data.") }
                 Section("Privacy") { Text("Loci stores the latest poster on this device. It does not use accounts, analytics, advertising, or background location.") }
             }
             .navigationTitle("Loci")

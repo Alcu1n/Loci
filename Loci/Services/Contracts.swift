@@ -2,7 +2,10 @@ import Foundation
 import UIKit
 
 protocol MapRenderer: Sendable { func snapshot(document: PosterDocument, size: CGSize, viewport: MapViewport) async throws -> UIImage }
-protocol GeocodingClient: Sendable { func search(query: String) async throws -> [PlaceSuggestion] }
+protocol GeocodingClient: Sendable {
+    func search(query: String) async throws -> [PlaceSuggestion]
+    func reverseGeocode(latitude: Double, longitude: Double) async throws -> PlaceSuggestion
+}
 protocol CurrentLocationClient: Sendable { func locate() async throws -> PlaceSuggestion }
 protocol DraftRepository: Sendable { func load() throws -> PosterDocument?; func save(_ document: PosterDocument) throws }
 protocol PosterCompositor: Sendable { func render(map: UIImage, document: PosterDocument, output: CGSize) throws -> UIImage }
@@ -38,7 +41,35 @@ enum PosterTypographyLayout {
     static let footerYFraction: CGFloat = 0.965
 }
 
-struct PlaceSuggestion: Identifiable, Equatable, Sendable { let id = UUID(); let name: String; let city: String; let country: String; let latitude: Double; let longitude: Double; let zoom: Double }
+struct PlaceSuggestion: Identifiable, Equatable, Sendable {
+    let id: String
+    let name: String
+    let district: String
+    let city: String
+    let administrativeArea: String
+    let country: String
+    let countryCode: String
+    let continent: String
+    let isAdministrative: Bool
+    let latitude: Double
+    let longitude: Double
+    let zoom: Double
+
+    init(id: String = UUID().uuidString, name: String, district: String = "", city: String, administrativeArea: String = "", country: String, countryCode: String = "", continent: String = "", isAdministrative: Bool = true, latitude: Double, longitude: Double, zoom: Double) {
+        self.id = id
+        self.name = name
+        self.district = district
+        self.city = city
+        self.administrativeArea = administrativeArea
+        self.country = country
+        self.countryCode = countryCode
+        self.continent = continent
+        self.isAdministrative = isAdministrative
+        self.latitude = latitude
+        self.longitude = longitude
+        self.zoom = zoom
+    }
+}
 enum LociError: LocalizedError { case unavailableConfiguration, invalidCoordinates, outputTooLarge, noResults, renderFailed, previewUnavailable, locationDenied, locationUnavailable, locationTimedOut, photoAccessDenied, photoSaveFailed
     var errorDescription: String? { switch self { case .unavailableConfiguration: "Map and search services need to be configured before this feature can connect."; case .invalidCoordinates: "Enter latitude from −90 to 90 and longitude from −180 to 180."; case .outputTooLarge: "This size exceeds Loci’s 12 MP export budget."; case .noResults: "No places found."; case .renderFailed: "Loci could not render this poster."; case .previewUnavailable: "Wait for the map preview to finish loading before exporting."; case .locationDenied: "Location access is off. Enable it for Loci in Settings to use your current place."; case .locationUnavailable: "Loci could not determine your current location."; case .locationTimedOut: "Location took too long. Check your signal and try again."; case .photoAccessDenied: "Photo access is off. Allow Loci to add photos in Settings."; case .photoSaveFailed: "Loci could not save this poster to Photos." } }
 }

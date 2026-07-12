@@ -8,7 +8,7 @@ struct EditorView: View {
             GeometryReader { proxy in
                 VStack(spacing: 0) {
                     toolbar(topInset: proxy.safeAreaInsets.top)
-                    PosterPreview(document: store.document, onViewportChange: store.updateViewport, onFailure: { store.errorMessage = $0 })
+                    PosterPreview(document: store.document, onViewportChange: store.updateViewport, onViewportSettled: store.settleViewport, onFailure: { store.errorMessage = $0 })
                         .padding(.horizontal, 18).padding(.vertical, 12)
                         .frame(maxHeight: .infinity)
                     editorBar(bottomInset: proxy.safeAreaInsets.bottom)
@@ -23,6 +23,7 @@ struct EditorView: View {
             .alert("Saved", isPresented: Binding(get: { store.confirmationMessage != nil }, set: { if !$0 { store.confirmationMessage = nil } })) { Button("OK", role: .cancel) { store.confirmationMessage = nil } } message: { Text(store.confirmationMessage ?? "") }
         }
         .tint(.white)
+        .buttonStyle(.mediumHaptic)
         .toolbar(.hidden, for: .navigationBar)
         .statusBarHidden(true)
     }
@@ -40,7 +41,7 @@ struct EditorView: View {
                 .accessibilityLabel("\(store.document.title), map poster")
             Spacer()
             Button { Task { await store.exportToPhotos() } } label: {
-                if store.isExporting { ProgressView().tint(.white) } else { Image(systemName: "arrow.down.to.line") }
+                if store.isExporting { ProgressView().tint(.white) } else { Image("downloadicon").resizable().scaledToFit().frame(width: 24, height: 24) }
             }
             .disabled(store.isExporting || store.previewViewport == nil)
             .accessibilityLabel("Save poster to Photos")
@@ -54,13 +55,13 @@ struct EditorView: View {
 
     private func editorBar(bottomInset: CGFloat) -> some View {
         HStack(spacing: 0) {
-            editorButton("Location", icon: "location") { store.activeSheet = .location }
+            editorButton("Location", asset: "location") { store.activeSheet = .location }
                 .padding(.bottom, bottomInset)
             Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1)
-            editorButton("Style", icon: "circle.lefthalf.filled") { store.activeSheet = .style }
+            editorButton("Style", systemIcon: "circle.lefthalf.filled") { store.activeSheet = .style }
                 .padding(.bottom, bottomInset)
             Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1)
-            editorButton("Text & Size", icon: "textformat.size") { store.activeSheet = .text }
+            editorButton("Text & Size", systemIcon: "textformat.size") { store.activeSheet = .text }
                 .padding(.bottom, bottomInset)
         }
         .frame(height: 52 + bottomInset)
@@ -68,13 +69,17 @@ struct EditorView: View {
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.18)) }
     }
 
-    private func editorButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func editorButton(_ title: String, systemIcon: String? = nil, asset: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 21, weight: .regular))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Group {
+                if let asset {
+                    Image(asset).resizable().scaledToFit().frame(width: 24, height: 24)
+                } else if let systemIcon {
+                    Image(systemName: systemIcon).font(.system(size: 21, weight: .regular))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(title)
     }
     @ViewBuilder private func sheetView(_ sheet: PosterEditorStore.Sheet) -> some View { switch sheet { case .location: LocationSheet(store: store); case .style: StyleSheet(store: store); case .text: TextSizeSheet(store: store); case .settings: SettingsView() } }
@@ -83,19 +88,21 @@ struct EditorView: View {
 private struct PosterPreview: View {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
-    var body: some View { GeometryReader { proxy in let width = proxy.size.width; let height = min(proxy.size.height, width / document.layout.aspectRatio); PosterArtwork(document: document, onViewportChange: onViewportChange, onFailure: onFailure).frame(width: width, height: height).frame(maxHeight: .infinity, alignment: .center) }.aspectRatio(document.layout.aspectRatio, contentMode: .fit).accessibilityLabel("Poster preview for \(document.location.city ?? document.title)") }
+    var body: some View { GeometryReader { proxy in let width = proxy.size.width; let height = min(proxy.size.height, width / document.layout.aspectRatio); PosterArtwork(document: document, onViewportChange: onViewportChange, onViewportSettled: onViewportSettled, onFailure: onFailure).frame(width: width, height: height).frame(maxHeight: .infinity, alignment: .center) }.aspectRatio(document.layout.aspectRatio, contentMode: .fit).accessibilityLabel("Poster preview for \(document.locationPresentation.primary)") }
 }
 
 struct PosterArtwork: View {
     let document: PosterDocument
     let onViewportChange: (MapViewport) -> Void
+    let onViewportSettled: (MapViewport) -> Void
     let onFailure: (String) -> Void
     private var theme: PosterTheme { PosterTheme.all.first(where: { $0.id == document.themeID }) ?? PosterTheme.all[0] }
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
-                MapLibreMapView(document: document, onViewportChange: onViewportChange, onFailure: onFailure)
+                MapLibreMapView(document: document, onViewportChange: onViewportChange, onViewportSettled: onViewportSettled, onFailure: onFailure)
                     .overlay(alignment: .top) {
                         LinearGradient(colors: [Color(hex: theme.background).opacity(Double(PosterFade.opacity)), .clear], startPoint: .top, endPoint: .bottom)
                             .frame(height: proxy.size.height * PosterFade.topFraction).allowsHitTesting(false)
@@ -114,12 +121,13 @@ struct PosterArtwork: View {
     }
 
     private func posterText(width: CGFloat) -> some View {
-        VStack(spacing: 6) {
+        let locationText = document.locationPresentation
+        return VStack(spacing: 6) {
             if document.typography.cityVisible {
-                Text(document.location.city ?? document.title).font(.system(size: max(28, width * 0.105), weight: .bold, design: .monospaced)).tracking(width * 0.006).lineLimit(1).minimumScaleFactor(0.45)
+                Text(locationText.primary).font(.system(size: max(28, width * 0.105), weight: .bold, design: .monospaced)).tracking(width * 0.006).lineLimit(1).minimumScaleFactor(0.45)
             }
             if document.typography.countryVisible {
-                Text(document.location.country ?? "").font(.system(size: max(10, width * 0.030), weight: .medium, design: .monospaced)).tracking(width * 0.004).foregroundStyle(Color(hex: theme.ink).opacity(0.72))
+                Text(locationText.secondary).font(.system(size: max(10, width * 0.030), weight: .medium, design: .monospaced)).tracking(width * 0.004).foregroundStyle(Color(hex: theme.ink).opacity(0.72))
             }
             LinearGradient(colors: [.clear, Color(hex: theme.ink).opacity(0.55), Color(hex: theme.ink).opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
                 .frame(width: width * PosterTypographyLayout.separatorWidthFraction, height: 1).padding(.vertical, 4)
@@ -142,3 +150,19 @@ struct PosterArtwork: View {
 }
 
 extension Color { init(hex: String) { self.init(uiColor: UIColor(hex: hex)) } }
+
+struct MediumHapticButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            configuration.trigger()
+        } label: {
+            configuration.label
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension PrimitiveButtonStyle where Self == MediumHapticButtonStyle {
+    static var mediumHaptic: MediumHapticButtonStyle { MediumHapticButtonStyle() }
+}

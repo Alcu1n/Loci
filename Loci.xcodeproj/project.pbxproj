@@ -21,6 +21,7 @@
 		A00000000000000000000012 /* MapServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* MapServiceConfiguration.swift */; };
 		A00000000000000000000013 /* CurrentLocationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* CurrentLocationClient.swift */; };
 		A00000000000000000000014 /* loci-map-style.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* loci-map-style.json */; };
+		A00000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +50,7 @@
 		A10000000000000000000013 /* MapServiceConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapServiceConfiguration.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* CurrentLocationClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentLocationClient.swift; sourceTree = "<group>"; };
 		A10000000000000000000015 /* loci-map-style.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loci-map-style.json"; sourceTree = "<group>"; };
+		A10000000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -149,6 +151,7 @@
 		A30000000000000000000009 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A10000000000000000000016 /* Assets.xcassets */,
 				A10000000000000000000009 /* Localizable.xcstrings */,
 				A10000000000000000000015 /* loci-map-style.json */,
 			);
@@ -241,6 +244,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A00000000000000000000015 /* Assets.xcassets in Resources */,
 				A00000000000000000000009 /* Localizable.xcstrings in Resources */,
 				A00000000000000000000014 /* loci-map-style.json in Resources */,
 			);

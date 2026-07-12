@@ -60,11 +60,11 @@ import Observation
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
     func updateCity(_ city: String) {
-        if !document.typography.cityIsUserEdited { document.typography.cityOverrideAnchor = Self.locationAnchor(from: document.location) }
+        if !document.typography.cityIsUserEdited { document.typography.cityOverrideAnchor = Self.locationAnchor(from: document.location, zoom: document.camera.zoom) }
         document.location.city = city.uppercased(); document.title = city.uppercased(); document.typography.cityIsUserEdited = true; save()
     }
     func updateCountry(_ country: String) {
-        if !document.typography.countryIsUserEdited { document.typography.countryOverrideAnchor = Self.locationAnchor(from: document.location) }
+        if !document.typography.countryIsUserEdited { document.typography.countryOverrideAnchor = Self.locationAnchor(from: document.location, zoom: document.camera.zoom) }
         document.location.country = country.uppercased(); document.typography.countryIsUserEdited = true; save()
     }
     func select(_ suggestion: PlaceSuggestion) {
@@ -277,13 +277,14 @@ import Observation
         }
     }
 
-    private static func locationAnchor(from location: PosterLocation) -> AutomaticLocationAnchor {
-        .init(name: location.city?.nilIfEmpty, administrativeArea: location.administrativeArea?.nilIfEmpty, country: location.country?.nilIfEmpty, countryCode: location.countryCode?.nilIfEmpty)
+    private static func locationAnchor(from location: PosterLocation, zoom: Double) -> AutomaticLocationAnchor {
+        .init(name: location.city?.nilIfEmpty, administrativeArea: location.administrativeArea?.nilIfEmpty, country: location.country?.nilIfEmpty, countryCode: location.countryCode?.nilIfEmpty, nameIsCity: zoom < 12)
     }
 
     private static func migratedCityAnchor(from document: PosterDocument) -> AutomaticLocationAnchor? {
-        let anchor = AutomaticLocationAnchor(name: nil, administrativeArea: document.location.administrativeArea?.nilIfEmpty, country: nil, countryCode: document.location.countryCode?.nilIfEmpty)
-        return anchor.administrativeArea != nil || anchor.countryCode != nil ? anchor : nil
+        let resolvedName = document.location.resolvedName?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        let anchor = AutomaticLocationAnchor(name: resolvedName, administrativeArea: document.location.administrativeArea?.nilIfEmpty, country: document.typography.countryIsUserEdited ? nil : document.location.country?.nilIfEmpty, countryCode: document.location.countryCode?.nilIfEmpty, nameIsCity: resolvedName == nil ? nil : document.camera.zoom < 12)
+        return anchor.name != nil || anchor.administrativeArea != nil || anchor.countryCode != nil || anchor.country != nil ? anchor : nil
     }
 
     private static func migratedCountryAnchor(from document: PosterDocument) -> AutomaticLocationAnchor? {
@@ -300,9 +301,16 @@ private extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }
 private extension AutomaticLocationAnchor {
     func matches(city: String?, administrativeArea: String, country: String, countryCode: String) -> Bool {
         guard matches(country: country, countryCode: countryCode) else { return false }
-        let expectedNames = [name, self.administrativeArea].compactMap { $0 }.map(NominatimResponseParser.normalized).filter { !$0.isEmpty }
-        let actualNames = [city ?? "", administrativeArea].map(NominatimResponseParser.normalized).filter { !$0.isEmpty }
-        return expectedNames.isEmpty || actualNames.isEmpty || !expectedNames.filter(actualNames.contains).isEmpty
+        if nameIsCity != false, let expectedCity = name?.nilIfEmpty {
+            return NominatimResponseParser.normalized(expectedCity) == NominatimResponseParser.normalized(city ?? "")
+        }
+        if let expectedAdministrativeArea = self.administrativeArea?.nilIfEmpty {
+            return NominatimResponseParser.normalized(expectedAdministrativeArea) == NominatimResponseParser.normalized(administrativeArea)
+        }
+        if let expectedName = name?.nilIfEmpty {
+            return NominatimResponseParser.normalized(expectedName) == NominatimResponseParser.normalized(city ?? "")
+        }
+        return true
     }
 
     func matches(country: String, countryCode: String) -> Bool {

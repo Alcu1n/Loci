@@ -115,6 +115,23 @@ final class LociTests: XCTestCase {
     }
 
     @MainActor
+    func testLegacyManualCityWithoutAnchorMigratesFromResolvedName() async {
+        var legacy = PosterDocument.tokyo
+        legacy.location.city = "SHANGHAI"
+        legacy.title = "SHANGHAI"
+        legacy.typography.cityIsUserEdited = true
+        let hongKong = PlaceSuggestion(name: "Hong Kong, Hong Kong", city: "Hong Kong", country: "Hong Kong", countryCode: "HK", continent: "Asia", latitude: 22.3193, longitude: 114.1694, zoom: 7)
+        let store = makeStore(document: legacy, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: hongKong))
+        let viewport = MapViewport(camera: .init(latitude: 22.3193, longitude: 114.1694, zoom: 7), size: .init(width: 300, height: 400))
+
+        store.settleViewport(viewport)
+        try? await Task.sleep(for: .milliseconds(40))
+
+        XCTAssertEqual(store.document.location.city, "HONG KONG")
+        XCTAssertFalse(store.document.typography.cityIsUserEdited)
+    }
+
+    @MainActor
     func testMovingWithinSameCityKeepsManualCityOverride() async {
         let tokyo = PlaceSuggestion(name: "Tokyo, Japan", city: "Tokyo", country: "Japan", countryCode: "JP", continent: "Asia", latitude: 35.70, longitude: 139.72, zoom: 7)
         let store = makeStore(document: .tokyo, geocoder: StubGeocoder(reverseResult: nil), offlineGeocoder: StubOfflineGeocoder(result: tokyo))

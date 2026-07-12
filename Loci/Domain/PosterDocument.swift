@@ -55,6 +55,7 @@ struct AutomaticLocationAnchor: Codable, Equatable, Sendable {
     var administrativeArea: String?
     var country: String?
     var countryCode: String?
+    var nameIsCity: Bool? = nil
 }
 struct PosterCamera: Codable, Equatable, Sendable { var latitude: Double; var longitude: Double; var zoom: Double; var bearing: Double = 0 }
 struct LayerVisibility: Codable, Equatable, Sendable { var water: Bool; var green: Bool; var buildings: Bool; var roads: Bool; static let all = Self(water: true, green: true, buildings: true, roads: true) }

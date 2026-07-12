@@ -63,13 +63,20 @@ actor OfflineGazetteer: OfflineGeocodingClient {
         var district: CityResult?
         if zoom >= 7 {
             try openDatabaseIfNeeded()
-            city = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: zoom >= 12 ? 11 : zoom)
+            city = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: zoom >= 12 ? 11 : zoom, maximumDistance: zoom >= 12 ? 60_000 : nil)
             if zoom >= 12 {
                 district = try nearestCity(latitude: latitude, longitude: longitude, countryCode: country.code, zoom: 12)
             }
         }
 
-        let districtName = district?.name != city?.name ? district?.name : nil
+        let districtBelongsToCity: Bool
+        if let districtAdmin = district?.administrativeArea, !districtAdmin.isEmpty,
+           let cityAdmin = city?.administrativeArea, !cityAdmin.isEmpty {
+            districtBelongsToCity = districtAdmin.caseInsensitiveCompare(cityAdmin) == .orderedSame
+        } else {
+            districtBelongsToCity = false
+        }
+        let districtName = districtBelongsToCity && district?.name != city?.name ? district?.name : nil
         let label = [districtName, city?.name, city?.administrativeArea, country.name].compactMap { $0 }.filter { !$0.isEmpty }.removingAdjacentDuplicates().joined(separator: ", ")
         return PlaceSuggestion(
             id: "offline:\(country.code):\(city?.id ?? 0):\(district?.id ?? 0)", name: label,
@@ -150,7 +157,7 @@ actor OfflineGazetteer: OfflineGeocodingClient {
         let longitude: Double
     }
 
-    private func nearestCity(latitude: Double, longitude: Double, countryCode: String, zoom: Double) throws -> CityResult? {
+    private func nearestCity(latitude: Double, longitude: Double, countryCode: String, zoom: Double, maximumDistance: Double? = nil) throws -> CityResult? {
         guard let database else { return nil }
         let searchRadius = zoom >= 12 ? 1.0 : 3.0
         let longitudeRadius = min(12, searchRadius / max(0.2, cos(latitude * .pi / 180)))
@@ -190,8 +197,8 @@ actor OfflineGazetteer: OfflineGeocodingClient {
             administrativeArea: String(cString: sqlite3_column_text(statement, 2)),
             latitude: sqlite3_column_double(statement, 3), longitude: sqlite3_column_double(statement, 4)
         )
-        let maximumDistance = zoom >= 12 ? 60_000.0 : 250_000.0
-        return distanceMeters(latitude, longitude, result.latitude, result.longitude) <= maximumDistance ? result : nil
+        let allowedDistance = maximumDistance ?? (zoom >= 12 ? 60_000.0 : 250_000.0)
+        return distanceMeters(latitude, longitude, result.latitude, result.longitude) <= allowedDistance ? result : nil
     }
 
     private func wrappedLongitudeRanges(center: Double, radius: Double) -> [ClosedRange<Double>] {

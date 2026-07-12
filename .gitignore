@@ -16,3 +16,4 @@ xcuserdata/
 
 # Generated simulator captures
 *.png
+!Loci/Resources/Assets.xcassets/**/*.png

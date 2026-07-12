@@ -16,7 +16,6 @@ final class CoreLocationClient: NSObject, CurrentLocationClient, @preconcurrency
     }
 
     func locate() async throws -> PlaceSuggestion {
-        guard CLLocationManager.locationServicesEnabled() else { throw LociError.locationUnavailable }
         let location = try await requestOneLocation()
         return await reverseGeocode(location)
     }
@@ -44,6 +43,7 @@ final class CoreLocationClient: NSObject, CurrentLocationClient, @preconcurrency
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard continuation != nil else { return }
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.requestLocation()

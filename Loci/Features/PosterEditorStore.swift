@@ -47,7 +47,7 @@ import Observation
 
     static func live() -> PosterEditorStore {
         let drafts = UserDefaultsDraftRepository(); let renderer = MapLibreRenderer(); let compositor = CoreGraphicsCompositor()
-        let document = (try? drafts.load()) ?? .tokyo
+        let document = (try? drafts.load()) ?? .shanghai
         let offlineGeocoder: any OfflineGeocodingClient = (try? OfflineGazetteer.live()) ?? EmptyOfflineGeocodingClient()
         let store = PosterEditorStore(document: document, drafts: drafts, geocoder: NominatimGeocodingClient(), offlineGeocoder: offlineGeocoder, exporter: LocalExportService(renderer: renderer, compositor: compositor), currentLocation: CoreLocationClient(), photoLibrary: SystemPhotoLibrarySaver())
         Task { try? await offlineGeocoder.preload() }
@@ -55,7 +55,7 @@ import Observation
     }
 
     func save() { document.updatedAt = .now; do { try drafts.save(document) } catch { errorMessage = error.localizedDescription } }
-    func newPoster() { invalidateLocationLookups(); document = .tokyo; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
+    func newPoster() { invalidateLocationLookups(); document = .shanghai; previewViewport = nil; lastReverseCoordinate = nil; lastDistrictLookupCoordinate = nil; save() }
     func selectTheme(_ theme: PosterTheme) { document.themeID = theme.id; save() }
     func setLayout(_ layout: PosterLayout) { document.layout = layout; previewViewport = nil; save() }
     func toggleLayer(_ keyPath: WritableKeyPath<LayerVisibility, Bool>) { document.layerVisibility[keyPath: keyPath].toggle(); save() }
@@ -270,7 +270,7 @@ import Observation
         let resolvedCountry = suggestion.countryCode.uppercased().nilIfEmpty ?? suggestion.country.uppercased().nilIfEmpty
         if document.typography.countryIsUserEdited,
            let anchor = document.typography.countryOverrideAnchor,
-           let resolvedCountry,
+           resolvedCountry != nil,
            !anchor.matches(country: suggestion.country, countryCode: suggestion.countryCode) {
             document.typography.countryIsUserEdited = false
             document.typography.countryOverrideAnchor = nil

@@ -6,7 +6,8 @@ struct LocationSheet: View {
     @State private var longitude = ""
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Location") { store.activeSheet = nil }
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     SectionLabel(title: "SEARCH")
@@ -57,9 +58,8 @@ struct LocationSheet: View {
                 .padding(20)
             }
             .background(Color.black)
-            .navigationTitle("Location")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
+        .background(Color.black)
         .preferredColorScheme(.dark)
         .buttonStyle(.mediumHaptic)
     }
@@ -69,14 +69,15 @@ struct StyleSheet: View {
     @Bindable var store: PosterEditorStore
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Style") { store.activeSheet = nil }
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("POSTER THEMES").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 1), GridItem(.flexible(), spacing: 1)], spacing: 1) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                         ForEach(PosterTheme.all) { theme in
                             ThemeThumbnail(theme: theme, isSelected: theme.id == store.document.themeID) {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                withAnimation(.easeOut(duration: 0.16)) {
                                     store.selectTheme(theme)
                                 }
                             }
@@ -91,9 +92,8 @@ struct StyleSheet: View {
                 .padding(20)
             }
             .background(Color.black)
-            .navigationTitle("Style")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
+        .background(Color.black)
         .preferredColorScheme(.dark)
         .buttonStyle(.mediumHaptic)
     }
@@ -105,34 +105,16 @@ private struct ThemeThumbnail: View {
     let theme: PosterTheme
     let isSelected: Bool
     let action: () -> Void
-    @State private var selectionPulse = false
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    Image(theme.thumbnailAssetName)
-                        .resizable()
-                        .aspectRatio(thumbnailAspectRatio, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
-                        .background(Color(hex: theme.background))
-
-                    if isSelected {
-                        HStack(spacing: 5) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 9, weight: .bold))
-                            Text("SELECTED")
-                                .font(.system(size: 9, design: .monospaced).weight(.bold))
-                        }
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 8)
-                        .frame(height: 24)
-                        .background(.white, in: .capsule)
-                        .padding(8)
-                        .transition(.scale(scale: 0.8).combined(with: .opacity))
-                    }
-                }
-                .clipped()
+                Image(theme.thumbnailAssetName)
+                    .resizable()
+                    .aspectRatio(thumbnailAspectRatio, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(hex: theme.background))
+                    .clipped()
 
                 HStack(spacing: 8) {
                     Text(theme.name.uppercased())
@@ -140,45 +122,28 @@ private struct ThemeThumbnail: View {
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .transition(.scale.combined(with: .opacity))
+                        Text("SELECTED")
+                            .font(.system(size: 9, design: .monospaced).weight(.bold))
+                            .transition(.opacity)
                     }
                 }
                 .foregroundStyle(isSelected ? Color.black : Color.white)
-                .padding(.horizontal, 9)
-                .frame(height: 32)
-                .background(isSelected ? Color.white : Color.black)
+                .padding(.horizontal, 8)
+                .frame(height: 28)
+                .background(isSelected ? Color.white : Color.white.opacity(0.08))
             }
             .background(Color.black)
-            .clipShape(.rect(cornerRadius: 8))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.white.opacity(isSelected ? 0.95 : 0.2), lineWidth: isSelected ? 2 : 1)
+                Rectangle()
+                    .stroke(Color.white.opacity(isSelected ? 1 : 0.22), lineWidth: isSelected ? 2 : 1)
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(.white.opacity(selectionPulse ? 0.72 : 0), lineWidth: 5)
-                    .scaleEffect(selectionPulse ? 1.025 : 1)
-            }
-            .scaleEffect(selectionPulse ? 1.012 : 1)
-            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
-            .animation(.easeOut(duration: 0.3), value: selectionPulse)
+            .animation(.easeOut(duration: 0.16), value: isSelected)
         }
         .buttonStyle(.themeSelection)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(theme.name) theme")
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onChange(of: isSelected, initial: false) { _, selected in
-            guard selected else { return }
-            selectionPulse = true
-            DispatchQueue.main.async {
-                withAnimation(.easeOut(duration: 0.3)) {
-                    selectionPulse = false
-                }
-            }
-        }
     }
 }
 
@@ -222,7 +187,8 @@ struct TextSizeSheet: View {
     @Bindable var store: PosterEditorStore
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Text & Size") { store.activeSheet = nil }
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("TYPOGRAPHY").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
@@ -259,11 +225,55 @@ struct TextSizeSheet: View {
                 .padding(20)
             }
             .background(Color.black)
-            .navigationTitle("Text & Size")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { store.activeSheet = nil } } }
         }
+        .background(Color.black)
         .preferredColorScheme(.dark)
         .buttonStyle(.mediumHaptic)
+    }
+}
+
+private struct SheetHeader: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(title)
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 16)
+            SheetDoneButton(action: action)
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 72)
+        .background(Color.black)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.white.opacity(0.14)).frame(height: 1)
+        }
+    }
+}
+
+private struct SheetDoneButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            action()
+        } label: {
+            Text("DONE")
+                .font(.system(size: 11, weight: .light, design: .monospaced))
+                .tracking(0.8)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 11)
+                .frame(height: 30)
+                .contentShape(Rectangle())
+                .overlay { Rectangle().stroke(Color.white.opacity(0.72), lineWidth: 1) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Done")
     }
 }
 

@@ -476,7 +476,7 @@ final class LociTests: XCTestCase {
     }
 #endif
 
-    func testUnknownThemeFallsBackToNoir() {
+    func testUnknownThemeFallsBackToDefaultTheme() {
         var document = PosterDocument.tokyo
         document.themeID = "removed-theme"
         document.normalize()
@@ -524,7 +524,19 @@ final class LociTests: XCTestCase {
     }
 
     func testDefaultPosterUsesA4Layout() {
-        XCTAssertEqual(PosterDocument.tokyo.layout, .a4Portrait)
+        XCTAssertEqual(PosterDocument.shanghai.layout, .a4Portrait)
+    }
+
+    func testDefaultPosterUsesShanghaiAtHighZoomWithNocturneTheme() {
+        let document = PosterDocument.shanghai
+        XCTAssertEqual(document.title, "SHANGHAI")
+        XCTAssertEqual(document.location.city, "SHANGHAI")
+        XCTAssertEqual(document.location.country, "CHINA")
+        XCTAssertEqual(document.camera.latitude, 31.2304)
+        XCTAssertEqual(document.camera.longitude, 121.4737)
+        XCTAssertEqual(document.camera.zoom, 13)
+        XCTAssertEqual(document.themeID, "midnight_blue")
+        XCTAssertEqual(PosterTheme.defaultID, "midnight_blue")
     }
 
     func testAllReferenceThemesAreAvailableWithDisplayNames() {

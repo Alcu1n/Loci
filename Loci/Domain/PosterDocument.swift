@@ -14,6 +14,13 @@ struct PosterDocument: Codable, Equatable, Identifiable, Sendable {
     var layerVisibility: LayerVisibility
     var typography: PosterTypography
 
+    static let shanghai = PosterDocument(
+        id: UUID(), schemaVersion: currentSchemaVersion, title: "SHANGHAI", updatedAt: .now,
+        location: .init(latitude: 31.2304, longitude: 121.4737, resolvedName: "Shanghai, China", city: "SHANGHAI", administrativeArea: "SHANGHAI", country: "CHINA", countryCode: "CN", continent: "ASIA"),
+        camera: .init(latitude: 31.2304, longitude: 121.4737, zoom: 13), layout: .a4Portrait,
+        themeID: PosterTheme.defaultID, layerVisibility: .all, typography: .default
+    )
+
     static let tokyo = PosterDocument(
         id: UUID(), schemaVersion: currentSchemaVersion, title: "TOKYO", updatedAt: .now,
         location: .init(latitude: 35.6762, longitude: 139.6503, resolvedName: "Tokyo, Japan", city: "TOKYO", country: "JAPAN"),
@@ -97,7 +104,7 @@ struct PosterTheme: Identifiable, Equatable, Sendable {
 
     var thumbnailAssetName: String { name.lowercased() }
 
-    static let defaultID = "noir"
+    static let defaultID = "midnight_blue"
     static let all: [Self] = [
         .init(id: "carrara", name: "Alabaster", background: "F4F1EA", land: "F4F1EA", landcover: "ECE7DD", water: "C7CDD0", parks: "E6E3D8", roads: "3A3631", roadsHigh: "565049", roadsMid: "6E675E", roadsLow: "8B8378", roadsPath: "A89F92", roadOutline: "F4F1EA", buildings: "E0DACD", rail: "2E2A26", ink: "2E2A26"),
         .init(id: "blush", name: "Petal", background: "F9F1F0", land: "F9F1F0", landcover: "F1E1E0", water: "E0BFC4", parks: "EDD6D6", roads: "9C5566", roadsHigh: "B27180", roadsMid: "C68F9B", roadsLow: "DBB2BB", roadsPath: "E8CDD3", roadOutline: "F9F1F0", buildings: "E9CCCE", rail: "7A4351", ink: "7A4351"),

@@ -23,9 +23,9 @@
 		A00000000000000000000014 /* loci-map-style.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* loci-map-style.json */; };
 		A00000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* Assets.xcassets */; };
 		A00000000000000000000016 /* OfflineGazetteer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* OfflineGazetteer.swift */; };
-		A00000000000000000000017 /* countries.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* countries.json */; };
-		A00000000000000000000018 /* cities.sqlite in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* cities.sqlite */; };
-		A00000000000000000000019 /* sources.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* sources.json */; };
+		A00000000000000000000017 /* OfflineGeodata/countries.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* OfflineGeodata/countries.json */; };
+		A00000000000000000000018 /* OfflineGeodata/cities.sqlite in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* OfflineGeodata/cities.sqlite */; };
+		A00000000000000000000019 /* OfflineGeodata/sources.json in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* OfflineGeodata/sources.json */; };
 		A00000000000000000000020 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
 
@@ -57,10 +57,10 @@
 		A10000000000000000000015 /* loci-map-style.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loci-map-style.json"; sourceTree = "<group>"; };
 		A10000000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000017 /* OfflineGazetteer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineGazetteer.swift; sourceTree = "<group>"; };
-		A10000000000000000000018 /* countries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/countries.json; sourceTree = "<group>"; };
-		A10000000000000000000019 /* cities.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = OfflineGeodata/cities.sqlite; sourceTree = "<group>"; };
-		A10000000000000000000020 /* sources.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/sources.json; sourceTree = "<group>"; };
-		A10000000000000000000021 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.text-based-dylib-definition; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		A10000000000000000000018 /* OfflineGeodata/countries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/countries.json; sourceTree = "<group>"; };
+		A10000000000000000000019 /* OfflineGeodata/cities.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = OfflineGeodata/cities.sqlite; sourceTree = "<group>"; };
+		A10000000000000000000020 /* OfflineGeodata/sources.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OfflineGeodata/sources.json; sourceTree = "<group>"; };
+		A10000000000000000000021 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,6 +89,7 @@
 				A30000000000000000000002 /* Loci */,
 				A30000000000000000000006 /* LociTests */,
 				A30000000000000000000007 /* Products */,
+				F922B5A53003DBFC00149B63 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -164,13 +165,21 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000016 /* Assets.xcassets */,
-				A10000000000000000000018 /* countries.json */,
-				A10000000000000000000019 /* cities.sqlite */,
-				A10000000000000000000020 /* sources.json */,
+				A10000000000000000000018 /* OfflineGeodata/countries.json */,
+				A10000000000000000000019 /* OfflineGeodata/cities.sqlite */,
+				A10000000000000000000020 /* OfflineGeodata/sources.json */,
 				A10000000000000000000009 /* Localizable.xcstrings */,
 				A10000000000000000000015 /* loci-map-style.json */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		F922B5A53003DBFC00149B63 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000021 /* libsqlite3.tbd */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -260,9 +269,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000015 /* Assets.xcassets in Resources */,
-				A00000000000000000000017 /* countries.json in Resources */,
-				A00000000000000000000018 /* cities.sqlite in Resources */,
-				A00000000000000000000019 /* sources.json in Resources */,
+				A00000000000000000000017 /* OfflineGeodata/countries.json in Resources */,
+				A00000000000000000000018 /* OfflineGeodata/cities.sqlite in Resources */,
+				A00000000000000000000019 /* OfflineGeodata/sources.json in Resources */,
 				A00000000000000000000009 /* Localizable.xcstrings in Resources */,
 				A00000000000000000000014 /* loci-map-style.json in Resources */,
 			);
@@ -393,21 +402,22 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = RZD9M68FZ9;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Loci;
+				INFOPLIST_KEY_CFBundleDisplayName = "Loci-Turn places into art";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Loci uses your location once to centre this map poster.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Loci saves your exported map posters to your photo library.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.loci.poster;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.locimapart.poster;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -421,20 +431,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = RZD9M68FZ9;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Loci;
+				INFOPLIST_KEY_CFBundleDisplayName = "Loci-Turn places into art";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Loci uses your location once to centre this map poster.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Loci saves your exported map posters to your photo library.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.loci.poster;
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.locimapart.poster;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

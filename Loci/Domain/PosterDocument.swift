@@ -95,6 +95,8 @@ struct PosterTheme: Identifiable, Equatable, Sendable {
     let rail: String
     let ink: String
 
+    var thumbnailAssetName: String { name.lowercased() }
+
     static let defaultID = "noir"
     static let all: [Self] = [
         .init(id: "carrara", name: "Alabaster", background: "F4F1EA", land: "F4F1EA", landcover: "ECE7DD", water: "C7CDD0", parks: "E6E3D8", roads: "3A3631", roadsHigh: "565049", roadsMid: "6E675E", roadsLow: "8B8378", roadsPath: "A89F92", roadOutline: "F4F1EA", buildings: "E0DACD", rail: "2E2A26", ink: "2E2A26"),

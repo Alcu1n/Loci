@@ -533,6 +533,13 @@ final class LociTests: XCTestCase {
         XCTAssertTrue(PosterTheme.all.allSatisfy { !$0.name.isEmpty })
     }
 
+    func testThemeThumbnailAssetNamesFollowDisplayNames() {
+        XCTAssertEqual(PosterTheme.all.map(\.thumbnailAssetName), [
+            "alabaster", "petal", "dune", "ember", "garnet", "meadow", "hearth", "nocturne", "pulse", "sienna",
+            "draft", "contour", "verdigris", "evergreen", "grove", "sumi", "nightfall", "tide", "reverie"
+        ])
+    }
+
     func testDraftRoundTrip() throws {
         let document = PosterDocument.tokyo
         let data = try JSONEncoder().encode(document)

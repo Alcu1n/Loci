@@ -75,13 +75,11 @@ struct StyleSheet: View {
                     Text("POSTER THEMES").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 1), GridItem(.flexible(), spacing: 1)], spacing: 1) {
                         ForEach(PosterTheme.all) { theme in
-                            Button { store.selectTheme(theme) } label: {
-                                Rectangle().fill(Color(hex: theme.background))
-                                    .overlay(alignment: .bottomLeading) { Text(theme.name.uppercased()).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color(hex: theme.ink)).padding(10) }
-                                    .overlay { if theme.id == store.document.themeID { Rectangle().stroke(.white, lineWidth: 2) } }
-                                    .aspectRatio(1.5, contentMode: .fit)
+                            ThemeThumbnail(theme: theme, isSelected: theme.id == store.document.themeID) {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                    store.selectTheme(theme)
+                                }
                             }
-                            .buttonStyle(.mediumHaptic)
                         }
                     }
                     Text("LAYERS").font(.system(size: 12, design: .monospaced)).foregroundStyle(.gray)
@@ -99,6 +97,105 @@ struct StyleSheet: View {
         .preferredColorScheme(.dark)
         .buttonStyle(.mediumHaptic)
     }
+}
+
+private struct ThemeThumbnail: View {
+    private let thumbnailAspectRatio = 2100.0 / 2970.0
+
+    let theme: PosterTheme
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var selectionPulse = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                ZStack(alignment: .topTrailing) {
+                    Image(theme.thumbnailAssetName)
+                        .resizable()
+                        .aspectRatio(thumbnailAspectRatio, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(hex: theme.background))
+
+                    if isSelected {
+                        HStack(spacing: 5) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("SELECTED")
+                                .font(.system(size: 9, design: .monospaced).weight(.bold))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .frame(height: 24)
+                        .background(.white, in: .capsule)
+                        .padding(8)
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    }
+                }
+                .clipped()
+
+                HStack(spacing: 8) {
+                    Text(theme.name.uppercased())
+                        .font(.system(size: 10, design: .monospaced).weight(.medium))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .foregroundStyle(isSelected ? Color.black : Color.white)
+                .padding(.horizontal, 9)
+                .frame(height: 32)
+                .background(isSelected ? Color.white : Color.black)
+            }
+            .background(Color.black)
+            .clipShape(.rect(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(isSelected ? 0.95 : 0.2), lineWidth: isSelected ? 2 : 1)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.white.opacity(selectionPulse ? 0.72 : 0), lineWidth: 5)
+                    .scaleEffect(selectionPulse ? 1.025 : 1)
+            }
+            .scaleEffect(selectionPulse ? 1.012 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
+            .animation(.easeOut(duration: 0.3), value: selectionPulse)
+        }
+        .buttonStyle(.themeSelection)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(theme.name) theme")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onChange(of: isSelected, initial: false) { _, selected in
+            guard selected else { return }
+            selectionPulse = true
+            DispatchQueue.main.async {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    selectionPulse = false
+                }
+            }
+        }
+    }
+}
+
+private struct ThemeSelectionButtonStyle: PrimitiveButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
+            configuration.trigger()
+        } label: {
+            configuration.label
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension PrimitiveButtonStyle where Self == ThemeSelectionButtonStyle {
+    static var themeSelection: ThemeSelectionButtonStyle { ThemeSelectionButtonStyle() }
 }
 
 private struct LayerToggle: View {
